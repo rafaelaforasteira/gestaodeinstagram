@@ -1,0 +1,11 @@
+{
+  "name": "social-studio-preview",
+  "private": true,
+  "scripts": {
+    "test": "node --test analytics.test.mjs",
+    "test:layout": "node tests/layout.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.65.0"
+  }
+}
