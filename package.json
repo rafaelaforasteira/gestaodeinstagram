@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "test": "node --test analytics.test.mjs",
-    "test:layout": "node tests/layout.mjs"
+    "test:layout": "node tests/layout.mjs",
+    "test:agenda": "node tests/agenda.mjs"
   },
   "devDependencies": {
     "playwright": "1.65.0"

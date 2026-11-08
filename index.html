@@ -119,7 +119,7 @@
             </div>
           </fieldset>
           <p id="network-empty" class="muted" hidden>Nenhuma rede conectada para este cliente.</p>
-          <fieldset><legend>Período de análise</legend>
+          <fieldset id="analysis-period"><legend>Período de análise</legend>
             <div class="period-options">
               <label><input type="radio" name="period" value="today" checked><span>Hoje</span></label>
               <label><input type="radio" name="period" value="yesterday"><span>Ontem</span></label>
@@ -180,7 +180,34 @@
           <div class="activity-header"><div><h2 id="activity-title">Atividades recentes</h2><p class="muted">Acompanhe o que mudou na sua operação.</p></div><div class="activity-tools"><label class="search"><svg><use href="#icon-search"/></svg><input id="search" type="search" aria-label="Buscar atividades" placeholder="Buscar atividade"></label><label class="filter"><svg><use href="#icon-filter"/></svg><select id="status-filter" aria-label="Filtrar por status"><option value="">Todos os status</option><option>Publicado</option><option>Agendado</option><option>Falha</option><option>Rascunho</option></select></label></div></div>
           <div id="activity-table"></div>
         </section>
-        <section class="card" id="agenda"><h2 id="agenda-title">Próximas publicações</h2><div id="upcoming"></div></section>
+        <section class="card agenda-page" id="agenda" aria-labelledby="agenda-title">
+          <header class="agenda-header">
+            <div><h2 id="agenda-title">Agenda</h2><p class="muted">Planeje e acompanhe suas publicações.</p></div>
+            <div class="agenda-actions">
+              <button class="button" type="button" id="agenda-filters" popovertarget="filter-panel"><svg aria-hidden="true"><use href="#icon-filter"/></svg> Filtros</button>
+              <button class="button primary" type="button" id="agenda-new">+ Nova publicação</button>
+            </div>
+          </header>
+          <div class="agenda-toolbar">
+            <div class="agenda-navigation">
+              <button class="button" type="button" id="agenda-prev" aria-label="Período anterior">‹</button>
+              <button class="button" type="button" id="agenda-today">Hoje</button>
+              <button class="button" type="button" id="agenda-next" aria-label="Próximo período">›</button>
+              <label class="agenda-date"><span class="sr-only">Ir para data</span><input type="date" id="agenda-date" min="1900-01-01" max="2099-12-31"></label>
+            </div>
+            <div class="metric-segments agenda-segments" role="radiogroup" aria-label="Visualização da Agenda">
+              <div class="metric-segments-track">
+                <span class="metric-segments-pill" aria-hidden="true"></span>
+                <label class="metric-segment"><input type="radio" name="agenda-mode" value="day"><span>Dia</span></label>
+                <label class="metric-segment"><input type="radio" name="agenda-mode" value="week" checked><span>Semana</span></label>
+                <label class="metric-segment"><input type="radio" name="agenda-mode" value="month"><span>Mês</span></label>
+                <label class="metric-segment"><input type="radio" name="agenda-mode" value="list"><span>Lista</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="agenda-context"><h3 id="agenda-period" aria-live="polite"></h3><p class="muted" id="agenda-scope"></p></div>
+          <div id="agenda-content"></div>
+        </section>
         <section class="card" id="attention"><h2 id="attention-title">Central de atenção</h2><div id="alerts"></div></section>
       </div>
 

@@ -18,6 +18,14 @@ Cliente restringe as contas disponíveis, rede/conta restringe os registros e pe
 
 A prévia estática não possui sincronização Meta Insights, cache remoto ou horário de atualização da Meta. Os dados são recalculados em memória a cada aplicação de filtros. Fora da demonstração os cinco widgets exibem indisponibilidade. Loading, erros da API, atualidade e compatibilidade por formato exigem um adaptador autorizado e validado contra a versão da API. Zero observado e dado ausente são estados distintos.
 
+## Agenda
+
+Consulte a [guia oficial da Agenda](https://docs.google.com/document/d/1q9ySzYvNYcAoEiqcuOkW96SIwdAcrW4hQEAKEd45v70/edit?tab=t.c9euvnwy06cd). A rota `#agenda` usa o AppShell e os mesmos filtros de cliente e conta da Visão Geral. Dia, Semana, Mês e Lista definem o intervalo visível; o período de análise da Visão Geral fica preservado e não restringe a Agenda. A semana começa na segunda-feira, e horários e datas dos agendamentos são convertidos para `America/Sao_Paulo`.
+
+O calendário e Posts programados usam a mesma fonte demonstrativa. A Agenda inclui registros históricos com horário, enquanto o widget exibe apenas agendamentos ativos. Os cards compartilham cores por formato, miniaturas, redes e indicadores de status. Na grade, a rolagem interna permite acessar as 24 horas, e ocorrências no mesmo horário ficam empilhadas.
+
+Esta prévia não possui compositor persistente, backend de agendamento ou worker. Não simule sucesso em criação, cancelamento ou reagendamento. Ao conectar esses serviços, valide sessão, workspace, papel, estado por destino e horário no servidor, e só confirme uma alteração depois da resposta do backend.
+
 
 Os dois widgets editoriais selecionam publicações confirmadas pelo mesmo escopo. Uma data única inclui o histórico até a data, e o gráfico compara com o conjunto até a véspera usando os valores acumulados da mesma base. Intervalos de vários dias usam janelas consecutivas de mesma duração. As duas séries usam uma escala comum, com média por publicação medida e contagem de cobertura. Zero observado entra na média. A variação exige média anterior positiva. Hoje é marcado como parcial. As publicações demonstrativas adicionais alimentam os dois widgets editoriais.
 

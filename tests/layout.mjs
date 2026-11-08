@@ -53,7 +53,7 @@ try {
   await helpPage.keyboard.press("Escape");
   assert.equal(await activityHelp.getAttribute("aria-expanded"),"false");
   assert.equal(await activityHelp.evaluate(el => el === document.activeElement),true);
-  for (const [route,title] of [["agenda","Próximas publicações"],["attention","Central de atenção"]]) {
+  for (const [route,title] of [["agenda","Agenda"],["attention","Central de atenção"]]) {
     await helpPage.goto(new URL("#"+route,url).href);
     const button = helpPage.getByRole("button",{name:"Sobre "+title});
     await button.focus();

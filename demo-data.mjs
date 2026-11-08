@@ -106,12 +106,20 @@ demoSchedules.push(...[
   ["aurora","Story de enquete","Story","17:00"],
   ["casa","Reel coleção Bella","Reel","19:00","aurora"],
   ["aurora","Dicas de cuidado com joias","Carrossel","20:30","texturas",["instagram","facebook","tiktok","youtube"]],
-].map(([account,title,format,time,cover,platforms=["instagram"]],index) => {
-  const scheduledAt = demo.today+"T"+time+":00-03:00";
+  ["casa","Texturas do ateliê","Carrossel","10:00","texturas",undefined,-4,"Publicado"],
+  ["aurora","Joias em movimento","Reel","10:00","aurora",undefined,-4,"Publicado"],
+  ["aurora","Detalhes da coleção","Imagem","14:30","aurora",undefined,-3,"Publicado"],
+  ["casa","Enquete de cores","Story","15:00",undefined,undefined,-2,"Falha"],
+  ["casa","Preparação do ensaio","Imagem","13:00","texturas",undefined,-1,"Publicado"],
+  ["aurora","Bastidores da madrugada","Story","02:15",undefined,undefined,1],
+  ["casa","Novas composições","Carrossel","15:30","texturas",undefined,1],
+  ["aurora","Seleção da semana","Reel","11:00","aurora",undefined,2],
+].map(([account,title,format,time,cover,platforms=["instagram"],offset=0,status="Agendado"],index) => {
+  const scheduledAt = offsetDay(demo.today,offset)+"T"+time+":00-03:00";
   return {
     id:"upcoming-"+index, occurrence:"upcoming-"+index, account,title,format,cover,
-    clientName:demoClients[account],status:"Agendado",scheduledAt,
-    destinations:platforms.map(platform => ({platform,scheduledAt})),
+    clientName:demoClients[account],status,scheduledAt,
+    destinations:platforms.map(platform => ({platform,scheduledAt,status})),
   };
 }));
 

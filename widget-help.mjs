@@ -10,7 +10,7 @@ export const widgetHelp = {
   "bio-overview-title": "Conta cliques únicos por evento no período para as contas selecionadas. Os totais de banners mostram a situação atual, independentemente do intervalo de cliques.",
   "bio-ranking-title": "Ordena até cinco banners pelos cliques válidos do período nas contas selecionadas. O status é o atual.",
   "activity-title": "Mostra registros das contas e do período selecionados, do mais recente ao mais antigo. Use a busca e o filtro de status para refinar a lista.",
-  "agenda-title": "Lista as publicações com data futura nas contas selecionadas, em ordem de agendamento. O período da Visão Geral não limita esta lista.",
+  "agenda-title": "Mostra publicações pelo horário de Brasília, com cor por formato e status separado. Os filtros escolhem as contas; a navegação define as datas. Reagendar exige um serviço autorizado.",
   "attention-title": "Reúne publicações com falha nas contas e no período selecionados. Abra uma publicação para revisar os detalhes.",
 };
 

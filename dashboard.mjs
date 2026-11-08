@@ -1,4 +1,5 @@
 import { renderWidgetHelp } from "./widget-help.mjs";
+import { createAgenda } from "./agenda.mjs";
 import { destinationName, publicationNetworkBadges, publicationFormatIcons, publicationFormatTag, renderIntelligence } from "./editorial.mjs";
 import { demo, demoEditorialHistory, demoFollowerSnapshot, demoPeriodInsights, demoSchedules, offsetDay, samples, posts } from "./demo-data.mjs";
 import { accountsInScope, completeTotal, percentChange, selectPeriods, selectActiveSchedules, sum } from "./analytics.mjs";
@@ -277,12 +278,8 @@ function renderConsistency(data) {
 function renderEditorial(data) {
   renderConsistency(data);
   renderIntelligence(data, {isDemo, today, icon, formatDate});
-  const upcoming = data.allPosts.filter(({scheduled}) => scheduled > today).sort((a,b) => a.scheduled.localeCompare(b.scheduled));
   const failures = data.activity.filter(({status}) => status === "Falha");
   $("editorial-alert").hidden = !failures.length;
-  $("upcoming").innerHTML = upcoming.length ? '<ul class="detail-list">' + upcoming.map((post) =>
-    '<li><button class="button" data-post="' + post.id + '">' + formatDate(post.scheduled) + ' · ' + post.title + '</button></li>').join("") +
-    '</ul><p class="muted">Agenda futura da conta selecionada.</p>' : empty("Nenhuma publicação futura disponível.");
   $("alerts").innerHTML = failures.length ? '<ul class="detail-list">' + failures.map((post) =>
     '<li><button class="button" data-post="' + post.id + '">Revisar ' + post.title + '</button></li>').join("") +
     '</ul>' : empty(isDemo ? "Nenhuma falha neste período." : "Dados operacionais indisponíveis.");
@@ -333,11 +330,12 @@ function scheduledTag(label, symbol, kind) {
   return tag;
 }
 
-function scheduledCard(post) {
+function scheduledCard(post, inAgenda = false) {
   const title = post.title || post.format + " sem título";
   const card = scheduleElement("button","scheduled-post");
   card.type = "button";
   card.dataset.schedule = post.occurrence;
+  if (inAgenda) card.dataset.agendaEvent = "";
   card.dataset.publicationFormat = ({Story:"story",Reel:"reel",Carrossel:"carousel",Imagem:"feed",Feed:"feed"})[post.format] ?? "unknown";
   const thumb = scheduleElement("span","scheduled-thumb");
   thumb.setAttribute("aria-hidden","true");
@@ -373,7 +371,11 @@ function scheduledCard(post) {
   const accent = scheduleElement("span","scheduled-accent");
   accent.setAttribute("aria-hidden","true");
   card.append(thumb,accent,body,group,clock,publicationFormatTag(post.format,icon));
-  if (post.status === "Agendado") card.append(scheduledTag(post.status,"check","status"));
+  if (post.status === "Agendado" || inAgenda) {
+    const status = scheduledTag(post.status,post.status === "Agendado" || post.status === "Publicado" ? "check" : "", "status");
+    status.dataset.scheduleStatus = post.status;
+    card.append(status);
+  }
   return card;
 }
 
@@ -454,6 +456,10 @@ function refresh() {
   renderScheduledPosts(data);
   renderEditorial(data);
   renderTable();
+  agenda.setScope(data.accounts, [
+    demo.clients.find(client => client.id === appliedFilters.client)?.name ?? "Todos os clientes",
+    data.accounts.find(account => account.id === appliedFilters.account)?.name ?? "Todas as redes",
+  ].join(" · "));
   renderWidgetHelp(isDemo);
   const {client,account,period} = appliedFilters;
   const count = ["client","account","period"].filter(key => appliedFilters[key] !== defaultFilters[key]).length;
@@ -765,12 +771,13 @@ $("calendar-days").addEventListener("click", (event) => {
   moveCalendar(day,true);
 });
 function placeFilterPanel() {
-  const anchor = filterTrigger.getBoundingClientRect();
+  const anchor = currentFilterTrigger().getBoundingClientRect();
   filterPanel.style.setProperty("--filter-right", Math.max(12,innerWidth-anchor.right) + "px");
   filterPanel.style.setProperty("--filter-top", Math.max(12,Math.min(anchor.bottom+8,innerHeight-180)) + "px");
 }
 filterPanel.addEventListener("beforetoggle", (event) => {
   if (event.newState !== "open") return;
+  $("analysis-period").hidden = location.hash === "#agenda";
   resetFilterDraft(appliedFilters);
   placeFilterPanel();
 });
@@ -796,7 +803,8 @@ filterForm.addEventListener("change", (event) => {
   }
   $("scope-error").hidden = true;
 });
-$("clear-filters").addEventListener("click", () => resetFilterDraft(defaultFilters));
+$("clear-filters").addEventListener("click", () => resetFilterDraft(location.hash === "#agenda" ?
+  {...appliedFilters,client:defaultFilters.client,account:defaultFilters.account} : defaultFilters));
 filterForm.noValidate = true;
 filterForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -818,8 +826,11 @@ filterForm.addEventListener("submit", (event) => {
   appliedFilters = draft;
   refresh();
   filterPanel.hidePopover();
-  filterTrigger.focus();
+  currentFilterTrigger().focus();
 });
+function currentFilterTrigger() {
+  return location.hash === "#agenda" ? $("agenda-filters") : filterTrigger;
+}
 
 if (!isDemo) {
   $("summary").textContent="Conecte uma fonte autorizada para acompanhar resultados e atividades.";
@@ -834,17 +845,25 @@ document.addEventListener("click",(event) => {
   const button=event.target.closest("button");
   if (!button) return;
   if (button.dataset.schedule) {
-    const post = visibleSchedules.find(({occurrence}) => occurrence === button.dataset.schedule);
+    const post = button.hasAttribute("data-agenda-event") ? agenda.find(button.dataset.schedule) :
+      visibleSchedules.find(({occurrence}) => occurrence === button.dataset.schedule);
     if (post) {
       const dateTime = new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,dateStyle:"short",timeStyle:"short"});
       const destinations = (post.destinations ?? []).map(destination => {
         const timestamp = Date.parse(destination.scheduledAt);
-        return destinationName(destination) + (Number.isFinite(timestamp) ? " · "+dateTime.format(timestamp) : " · Horário não informado");
+        return destinationName(destination) + (Number.isFinite(timestamp) ? " · "+dateTime.format(timestamp) : " · Horário não informado") +
+          (destination.status ? " · "+destination.status : "");
       });
       openDialog(post.title || post.format + " sem título",[post.format+" · "+accountName(post.account),
         post.clientName || "Cliente não informado","Status: "+post.status,
         "Programado para "+post.day.split("-").reverse().join("/")+" às "+post.time+" · horário de Brasília",
-        ...(isDemo && destinations.length ? ["Destinos demonstrativos"] : []),...destinations]);
+        ...(isDemo && destinations.length ? ["Destinos demonstrativos"] : []),...destinations,
+        ...(post.caption ? ["Legenda: "+post.caption] : []),
+        ...(button.hasAttribute("data-agenda-event") ? ["Histórico de publicação indisponível nesta prévia."] : [])]);
+      if (button.hasAttribute("data-agenda-event")) {
+        const image = button.querySelector("img")?.cloneNode();
+        if (image) { image.className = "agenda-detail-cover"; $("dialog-content").prepend(image); }
+      }
     }
   }
   if (button.dataset.post) {
@@ -859,11 +878,18 @@ document.addEventListener("click",(event) => {
     (document.querySelector('[data-page="'+button.dataset.page+'"]:not(:disabled)') ?? document.querySelector("[data-page]:not(:disabled)"))?.focus();
   }
 });
+const agenda = createAgenda({today,timezone,isDemo,records:isDemo ? demoSchedules : [],
+  card:post => scheduledCard(post,true),
+  openNew:day => openDialog("Nova publicação",["Data escolhida: "+day.split("-").reverse().join("/")+" · horário de Brasília",
+    "O compositor e o serviço de agendamento ainda não estão conectados nesta prévia. Nenhuma publicação será criada."]),
+});
 function updateNavigation() {
   const current=location.hash || "#overview-top";
   const route = current.slice(1);
   const main = document.querySelector(".workspace main");
   main.dataset.operation = ["activities","agenda","attention"].includes(route) ? route : "";
+  if (filterPanel.matches(":popover-open")) filterPanel.hidePopover();
+  if (route === "agenda") agenda.render();
   if (main.dataset.operation || route === "overview-top") contentViewport.scrollTo({top:0,behavior:"instant"});
   else $(route)?.scrollIntoView();
   document.querySelectorAll(".side-nav a,.sidebar-footer a").forEach((link) => {
