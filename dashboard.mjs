@@ -1,5 +1,6 @@
 import { renderWidgetHelp } from "./widget-help.mjs";
 import { createAgenda } from "./agenda.mjs";
+import { createComposer } from "./composer.mjs";
 import { destinationName, publicationNetworkBadges, publicationFormatIcons, publicationFormatTag, renderIntelligence } from "./editorial.mjs";
 import { demo, demoEditorialHistory, demoFollowerSnapshot, demoPeriodInsights, demoSchedules, offsetDay, samples, posts } from "./demo-data.mjs";
 import { accountsInScope, completeTotal, percentChange, selectPeriods, selectActiveSchedules, sum } from "./analytics.mjs";
@@ -17,7 +18,8 @@ const formatDate = (value) => shortDate.format(new Date(value + "T12:00:00Z"));
 const dateKey = new Intl.DateTimeFormat("sv-SE", {timeZone: timezone});
 const today = isDemo ? demo.today : dateKey.format(new Date());
 const calendarMin = offsetDay(today,-89);
-const calendarMax = isDemo ? demoSchedules.reduce((latest, post) => {
+const scheduleRecords = isDemo ? [...demoSchedules] : [];
+let calendarMax = isDemo ? scheduleRecords.reduce((latest, post) => {
   const day = dateKey.format(new Date(post.scheduledAt));
   return day > latest ? day : latest;
 },today) : today;
@@ -397,7 +399,7 @@ function renderScheduledPosts(data) {
   list.setAttribute("aria-busy","false");
   list.scrollTop = 0;
   try {
-    visibleSchedules = selectActiveSchedules(isDemo ? demoSchedules : [],new Set(data.accounts.map(({id}) => id)),
+    visibleSchedules = selectActiveSchedules(scheduleRecords,new Set(data.accounts.map(({id}) => id)),
       data.start,data.end,timezone,isDemo ? Date.parse(demo.now) : Date.now());
   } catch {
     visibleSchedules = [];
@@ -874,10 +876,25 @@ document.addEventListener("click",(event) => {
     (document.querySelector('[data-page="'+button.dataset.page+'"]:not(:disabled)') ?? document.querySelector("[data-page]:not(:disabled)"))?.focus();
   }
 });
-const agenda = createAgenda({today,timezone,isDemo,records:isDemo ? demoSchedules : [],
+const composer = createComposer({isDemo,workspace:activeWorkspace?.id,today,now:Date.parse(demo.now),timezone,clients:scopedClients,accountsFor,icon,
+  onSchedule(post) {
+    if (!isDemo || !accountsFor(scopedAccounts.find(a=>a.id===post.account)?.client,post.account).length) throw new Error("Destino inválido");
+    if (!scheduleRecords.some(item=>item.occurrence===post.occurrence)) scheduleRecords.push(post);
+    const day = dateKey.format(new Date(post.scheduledAt));
+    if (day>calendarMax) calendarMax=day;
+    refresh();
+  },
+  onView(day,client,account) {
+    if (!accountsFor(appliedFilters.client,appliedFilters.account).some(item=>item.id===account)) {
+      appliedFilters={...appliedFilters,client,account};
+      refresh();
+    }
+    agenda.viewDate(day);
+  },
+});
+const agenda = createAgenda({today,timezone,isDemo,records:scheduleRecords,
   card:post => scheduledCard(post,true),
-  openNew:day => openDialog("Nova publicação",["Data escolhida: "+day.split("-").reverse().join("/")+" · horário de Brasília",
-    "O compositor e o serviço de agendamento ainda não estão conectados nesta prévia. Nenhuma publicação será criada."]),
+  openNew:(day,time) => composer({day,time,client:appliedFilters.client,account:appliedFilters.account}),
 });
 function updateNavigation() {
   const current=location.hash || "#overview-top";

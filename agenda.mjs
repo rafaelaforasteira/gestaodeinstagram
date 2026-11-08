@@ -67,7 +67,13 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
       const row = element("div","agenda-hour-row");
       const hourText = String(hour).padStart(2,"0");
       row.dataset.hour = hourText;
-      row.append(element("span","agenda-hour-label",hourText+":00"));
+      const hourLabel = element(mode==="day"?"button":"span","agenda-hour-label",hourText+":00");
+      if (mode==="day") {
+        hourLabel.type="button";
+        hourLabel.setAttribute("aria-label","Nova publicação às "+hourText+":00");
+        hourLabel.onclick=()=>openNew(days[0],hourText+":00");
+      }
+      row.append(hourLabel);
       for (const day of days) {
         const cell = element("div","agenda-hour-cell");
         const entries = (byDay.get(day) ?? []).filter(post => post.time.startsWith(hourText+":"));
@@ -167,6 +173,13 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
   byId("agenda-new").onclick = () => openNew(anchor);
   return {
     render,
+    viewDate(day) {
+      anchor=day;
+      mode="list";
+      modeInput(mode).checked=true;
+      render();
+      modeInput(mode).focus();
+    },
     setScope(nextAccounts,nextScope,period) {
       accounts = nextAccounts;
       scope = nextScope;

@@ -70,8 +70,8 @@ try {
   await p.getByRole("button",{name:"Aplicar filtros"}).click();
   assert.equal(await agenda.getByRole("button",{name:/Bastidores do estúdio/}).count(),1);
   assert.equal(await p.locator("#filter-count").getAttribute("data-active"),"false");
-  await agenda.getByRole("button",{name:/Nova publicação/}).click();
-  assert.match(await p.locator("#dialog-content").innerText(),/ainda não estão conectados/);
+  await agenda.getByRole("button",{name:"+ Nova publicação",exact:true}).click();
+  await p.getByRole("dialog",{name:"Nova publicação"}).getByRole("heading",{name:"Onde você deseja publicar?"}).waitFor();
   await p.keyboard.press("Escape");
   assert.deepEqual(errors,[]);
   await p.close();

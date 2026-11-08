@@ -12,3 +12,4 @@
 - Consulte [os tokens visuais](docs/design/tokens.md) ao criar ou ajustar controles, estados e superfícies.
 - Todo widget informativo deve seguir o [contrato de ajuda contextual](docs/design/component-contracts.md#ajuda-contextual-dos-widgets) e a [guia oficial](https://docs.google.com/document/d/1q9ySzYvNYcAoEiqcuOkW96SIwdAcrW4hQEAKEd45v70/edit?tab=t.89m0nghs2990).
 - Para Agenda e agendamentos, siga o [contrato local da Agenda](docs/design/component-contracts.md#agenda) e execute `npm run test:agenda`.
+- Para o compositor, siga [as regras de publicação e UX](docs/design/publication-composer.md) e execute `npm run test:composer`.

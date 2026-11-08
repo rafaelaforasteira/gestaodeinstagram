@@ -215,6 +215,19 @@
   </div>
 </div>
 <dialog class="scroll-region" id="dialog" aria-labelledby="dialog-title"><form method="dialog"><button class="button close" aria-label="Fechar">×</button></form><h2 id="dialog-title"></h2><div id="dialog-content"></div></dialog>
+<dialog id="composer" class="composer" aria-labelledby="composer-title" aria-describedby="composer-subtitle">
+  <header class="composer-header">
+    <div><p class="composer-eyebrow">SOCIAL STUDIO · PUBLICAÇÕES</p><h2 id="composer-title">Nova publicação</h2><p class="muted" id="composer-subtitle" aria-live="polite"></p></div>
+    <button type="button" class="button composer-close" aria-label="Fechar compositor">×</button>
+    <nav class="composer-progress" aria-label="Etapas da publicação"></nav>
+  </header>
+  <div id="composer-body" class="composer-body scroll-region"></div>
+  <footer class="composer-footer">
+    <p class="composer-feedback" role="status" aria-live="polite"></p>
+    <button type="button" class="button" data-composer-action="back">Voltar</button>
+    <button type="button" class="button composer-primary" data-composer-action="next">Continuar</button>
+  </footer>
+</dialog>
 <dialog class="scroll-region" id="profile-dialog" aria-labelledby="profile-title">
   <form method="dialog"><button class="button close" aria-label="Fechar perfil">×</button></form>
   <h2 id="profile-title">Configurar perfil</h2>
