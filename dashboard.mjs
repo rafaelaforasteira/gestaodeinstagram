@@ -1,5 +1,6 @@
-import { demo, demoFollowerSnapshot, demoPeriodInsights, demoSchedules, offsetDay, samples, posts } from "./demo-data.mjs";
-import { completeTotal, percentChange, selectPeriods, selectScheduledPosts, sum } from "./analytics.mjs";
+import { destinationName, publicationNetworkBadges, publicationFormatIcons, publicationFormatTag, renderIntelligence } from "./editorial.mjs";
+import { demo, demoEditorialHistory, demoFollowerSnapshot, demoPeriodInsights, demoSchedules, offsetDay, samples, posts } from "./demo-data.mjs";
+import { accountsInScope, completeTotal, percentChange, selectPeriods, selectActiveSchedules, sum } from "./analytics.mjs";
 
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat("pt-BR");
@@ -25,13 +26,18 @@ const pageSize = 5;
 const statusText = { Publicado:"Publicação realizada", Agendado:"Agendamento criado", Falha:"Falha no processamento", Rascunho:"Rascunho atualizado" };
 const accountName = (id) => demo.accounts.find((account) => account.id === id)?.name ?? "Conta indisponível";
 const activeWorkspace = workspaces.find(({id}) => id === query.get("workspace")) ?? workspaces[0];
-const scopedAccounts = isDemo ? demo.accounts.filter(({workspace}) => workspace === activeWorkspace?.id) : [];
-const defaultFilters = { account:"all", period:"30", start:offsetDay(today,-29), end:today };
+const scopedClients = isDemo ? demo.clients.filter(({workspace}) => workspace === activeWorkspace?.id) : [];
+const scopedAccounts = isDemo ? accountsInScope(demo.accounts,scopedClients,activeWorkspace?.id) : [];
+const accountsFor = (client,account = "all") => accountsInScope(scopedAccounts,scopedClients,activeWorkspace?.id,client,account);
+const defaultFilters = { client:"all", account:"all", period:"today", start:today, end:today };
 const requestedAccount = query.get("account");
+const requestedClient = query.get("client") ?? scopedAccounts.find(({id}) => id === requestedAccount)?.client;
+const initialClient = scopedClients.some(({id}) => id === requestedClient) ? requestedClient : "all";
 const requestedPeriod = query.get("period");
 let appliedFilters = {
-  account: scopedAccounts.some(({id}) => id === requestedAccount) ? requestedAccount : "all",
-  period: ["today","yesterday","7","30","90","custom"].includes(requestedPeriod) ? requestedPeriod : "30",
+  client: initialClient,
+  account: accountsFor(initialClient,requestedAccount).length ? requestedAccount : "all",
+  period: ["today","yesterday","7","30","90","custom"].includes(requestedPeriod) ? requestedPeriod : defaultFilters.period,
   start: query.get("start") ?? defaultFilters.start,
   end: query.get("end") ?? defaultFilters.end,
 };
@@ -51,10 +57,10 @@ function range({period, start, end}) {
   }
   return { start: offsetDay(today, 1 - Number(period)), end: today };
 }
-if (!range(appliedFilters)) appliedFilters = { ...defaultFilters, account:appliedFilters.account };
+if (!range(appliedFilters)) appliedFilters = { ...defaultFilters, client:appliedFilters.client, account:appliedFilters.account };
 
 function getData(start, end) {
-  const accounts = scopedAccounts.filter(({id}) => appliedFilters.account === "all" || appliedFilters.account === id);
+  const accounts = accountsFor(appliedFilters.client,appliedFilters.account);
   const accountIds = new Set(accounts.map(({id}) => id));
   const belongs = ({account}) => accountIds.has(account);
   const within = ({date}) => date >= start && date <= end;
@@ -118,9 +124,22 @@ function renderAnalytics(data) {
   renderKpis(data);
 }
 
-const weekdayLabels = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
-const editorialMonth = new Intl.DateTimeFormat("pt-BR",{month:"short",year:"numeric",timeZone:"UTC"});
+const weekdayLabels = ["Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado","Domingo"];
+const editorialMonth = new Intl.DateTimeFormat("pt-BR",{month:"long",year:"numeric",timeZone:"UTC"});
+const shortMonth = new Intl.DateTimeFormat("pt-BR",{month:"short",timeZone:"UTC"});
 const editorialDate = new Intl.DateTimeFormat("pt-BR",{dateStyle:"full",timeZone:"UTC"});
+function editorialLegend() {
+  const legend = scheduleElement("div","heat-legend","Menos");
+  legend.setAttribute("aria-label","Intensidade: zero a quatro ou mais publicações");
+  for (let level = 0; level <= 4; level++) {
+    const swatch = scheduleElement("span","heat-cell");
+    swatch.dataset.level = level;
+    swatch.setAttribute("aria-hidden","true");
+    legend.append(swatch);
+  }
+  legend.append("Mais");
+  return legend;
+}
 let heatmapObserver;
 function renderConsistency(data) {
   heatmapObserver?.disconnect();
@@ -130,23 +149,17 @@ function renderConsistency(data) {
     root.append(scheduleElement("p","empty","Conecte uma conta do Instagram para acompanhar a consistência editorial."));
     return;
   }
-  const published = [...new Map(data.allPosts.filter(post => post.status === "Publicado").map(post => [post.id,post])).values()];
-  const contextStart = offsetDay(data.end,-370);
-  const occurrences = selectScheduledPosts(demoSchedules,new Set(data.accounts.map(({id}) => id)),contextStart,calendarMax,timezone);
+  const accountIds = new Set(data.accounts.map(({id}) => id));
+  const history = isDemo ? demoEditorialHistory.filter(post => accountIds.has(post.account)) : [];
+  const published = [...new Map([...data.allPosts,...history].filter(post => post.status === "Publicado")
+    .map(post => [post.account+":"+post.id,post])).values()];
   const days = new Map();
-  for (let day = contextStart; day <= calendarMax; day = offsetDay(day,1)) {
-    days.set(day,{published:[],planned:[],failed:[],scheduledCount:0});
+  for (const post of published) {
+    if (!days.has(post.date)) days.set(post.date,[]);
+    days.get(post.date).push(post);
   }
-  for (const post of published) days.get(post.date)?.published.push(post);
-  for (const post of occurrences) {
-    const day = days.get(post.day);
-    day.scheduledCount++;
-    if (post.status === "Agendado") day.planned.push(post);
-    if (post.status === "Falha") day.failed.push(post);
-  }
-  const filteredDays = [...days.keys()].filter(day => day >= data.start && day <= data.end);
-  const values = filteredDays.map(day => days.get(day));
-  const viewport = scheduleElement("div","heatmap-scroll");
+  const surface = scheduleElement("div","heat-surface");
+  const viewport = scheduleElement("div","heatmap-scroll scroll-region");
   const grid = scheduleElement("div","heatmap");
   const offset = day => (new Date(day+"T12:00:00Z").getUTCDay()+6)%7;
   const selectedFirst = offsetDay(data.start,-offset(data.start));
@@ -169,10 +182,22 @@ function renderConsistency(data) {
     tooltip.style.left = left+"px";
     tooltip.style.top = Math.max(8,Math.min(innerHeight-tooltip.offsetHeight-8,top))+"px";
   }
+  function attachTooltip(element, detail) {
+    element.setAttribute("aria-label",detail);
+    for (const event of ["focus","pointerenter"]) element.addEventListener(event,() => showTooltip(element,detail));
+    for (const event of ["blur","pointerleave"]) element.addEventListener(event,hideTooltip);
+    element.addEventListener("keydown",event => { if (event.key === "Escape") hideTooltip(); });
+  }
   viewport.addEventListener("scroll",hideTooltip,{passive:true});
   let visibleWeeks;
   function drawWeeks() {
-    const available = Math.floor((viewport.clientWidth-34)/15);
+    const viewportStyle = getComputedStyle(viewport);
+    const contentWidth = viewport.clientWidth - parseFloat(viewportStyle.paddingLeft) - parseFloat(viewportStyle.paddingRight);
+    const labelWidth = 16;
+    const gap = 4;
+    const cellSize = Math.max(16,Math.min(22,Math.floor((contentWidth-labelWidth)/23)-gap));
+    viewport.style.setProperty("--heat-size",cellSize+"px");
+    const available = Math.floor((contentWidth-labelWidth)/(cellSize+gap));
     const count = Math.max(selectedWeeks,Math.min(52,available));
     if (count === visibleWeeks) return;
     visibleWeeks = count;
@@ -180,45 +205,53 @@ function renderConsistency(data) {
     grid.replaceChildren();
     const first = offsetDay(lastWeek,-7*(count-1));
     const labels = scheduleElement("div","heat-week");
-    labels.append(document.createElement("span"),...weekdayLabels.map(label => scheduleElement("span","heat-label",label)));
+    labels.append(document.createElement("span"),...weekdayLabels.map(label => {
+      const item = scheduleElement("span","heat-label",label[0]);
+      item.tabIndex = 0;
+      attachTooltip(item,label);
+      return item;
+    }));
     grid.append(labels);
     let week, lastMonth;
     const cells = new Map();
     for (let day = first; day <= last; day = offsetDay(day,1)) {
       if (!offset(day)) {
         week = scheduleElement("div","heat-week");
-        const monthDay = day === first ? day : offsetDay(day,6);
+        const weekEnd = offsetDay(day,6);
+        const monthDay = day === first && day !== lastWeek ? day : weekEnd > data.end ? data.end : weekEnd;
         const month = monthDay.slice(0,7);
-        const showMonth = lastMonth !== month;
+        const firstMonthIsBrief = day === first && day !== lastWeek && offsetDay(day,13).slice(0,7) !== month &&
+          month !== data.end.slice(0,7);
+        const showMonth = lastMonth !== month && !firstMonthIsBrief;
         lastMonth = month;
-        week.append(scheduleElement("span","heat-month",showMonth ? editorialMonth.format(new Date(monthDay+"T12:00:00Z")).split(" ")[0] : ""));
+        const monthDate = new Date(monthDay+"T12:00:00Z");
+        const monthLabel = scheduleElement("span","heat-month",showMonth ? shortMonth.format(monthDate) : "");
+        if (showMonth) {
+          monthLabel.tabIndex = 0;
+          attachTooltip(monthLabel,editorialMonth.format(monthDate));
+        }
+        week.append(monthLabel);
         grid.append(week);
       }
-      const entry = days.get(day) ?? {published:[],planned:[],failed:[],scheduledCount:0};
+      const entries = days.get(day) ?? [];
       const selected = day >= data.start && day <= data.end;
       const date = editorialDate.format(new Date(day+"T12:00:00Z"));
-      const hasHistory = day <= today && (selected || entry.published.length > 0);
+      const hasHistory = isDemo && day <= today && day >= offsetDay(today,-180);
       const scope = data.accounts.length === 1 ? data.accounts[0].name : "Todas as contas";
-      const realized = entry.published.length === 1 ? "1 publicação realizada" : entry.published.length + " publicações realizadas";
+      const realized = entries.length === 1 ? "1 publicação realizada" : entries.length + " publicações realizadas";
       const detail = date + " · " + (hasHistory ? realized : "Histórico indisponível") +
-        " · " + entry.planned.length + " agendadas · " + entry.failed.length + " falhas" +
-        (hasHistory && entry.scheduledCount ? " · " + entry.scheduledCount + " na programação original" : "") +
         " · " + scope + (selected ? "" : " · Fora do período selecionado");
       const cell = scheduleElement("button","heat-cell");
       cell.type = "button";
       cell.dataset.date = day;
       cell.tabIndex = day === data.start ? 0 : -1;
-      cell.dataset.level = hasHistory ? Math.min(entry.published.length,4) : "unknown";
-      cell.setAttribute("aria-label",detail);
+      cell.dataset.level = hasHistory ? Math.min(entries.length,4) : "unknown";
       if (day === today) cell.setAttribute("aria-current","date");
       cell.classList.toggle("heat-context",!selected);
-      if (entry.planned.length) cell.classList.add("heat-planned");
-      for (const event of ["focus","pointerenter"]) cell.addEventListener(event,() => showTooltip(cell,detail));
-      for (const event of ["blur","pointerleave"]) cell.addEventListener(event,hideTooltip);
+      attachTooltip(cell,detail);
       cell.addEventListener("click",() => {
         hideTooltip();
-        const posts = [...entry.published,...entry.planned,...entry.failed];
-        openDialog(date,posts.length ? posts.map(post => post.status+" · "+post.title+" · "+accountName(post.account)) :
+        openDialog(date,entries.length ? entries.map(post => post.status+" · "+post.title+" · "+accountName(post.account)) :
           [hasHistory ? "Nenhuma publicação registrada neste dia." : "Histórico indisponível para este dia."]);
       });
       cell.addEventListener("keydown",event => {
@@ -236,37 +269,29 @@ function renderConsistency(data) {
       cells.set(day,cell);
       week.append(cell);
     }
-    viewport.scrollLeft = count > available ? 0 : viewport.scrollWidth;
+    viewport.scrollLeft = viewport.scrollWidth;
   }
   viewport.append(grid);
-  root.append(viewport,tooltip);
+  surface.append(viewport);
+  root.append(surface,editorialLegend(),tooltip);
   drawWeeks();
   heatmapObserver = new ResizeObserver(drawWeeks);
   heatmapObserver.observe(viewport);
-  if (!values.some(day => day.published.length) && data.start <= today) root.append(scheduleElement("p","muted","Nenhuma publicação registrada neste período."));
 }
 
 function renderEditorial(data) {
   renderConsistency(data);
-  const ranked = data.activity.filter(({status,cover}) => status === "Publicado" && cover).sort((a,b) => b.reach-a.reach).slice(0,2);
-  $("featured").innerHTML = ranked.length ? '<div class="featured">' + ranked.map((post) =>
-    '<button class="creative" data-post="' + post.id + '"><img class="creative-cover" src="./' + post.cover +
-    '.svg" alt=""><span class="creative-text"><strong>' + post.title + '</strong><small>' + post.format + ' · ' +
-    number.format(post.reach) + ' de alcance</small></span></button>').join("") + '</div>' : empty("Sem conteúdos classificados neste período.");
+  renderIntelligence(data, {isDemo, today, snapshot:demoFollowerSnapshot, icon, formatDate});
   const upcoming = data.allPosts.filter(({scheduled}) => scheduled > today).sort((a,b) => a.scheduled.localeCompare(b.scheduled));
   const failures = data.activity.filter(({status}) => status === "Falha");
+  $("editorial-alert").hidden = !failures.length;
   $("upcoming").innerHTML = upcoming.length ? '<ul class="detail-list">' + upcoming.map((post) =>
     '<li><button class="button" data-post="' + post.id + '">' + formatDate(post.scheduled) + ' · ' + post.title + '</button></li>').join("") +
     '</ul><p class="muted">Agenda futura da conta selecionada.</p>' : empty("Nenhuma publicação futura disponível.");
   $("alerts").innerHTML = failures.length ? '<ul class="detail-list">' + failures.map((post) =>
     '<li><button class="button" data-post="' + post.id + '">Revisar ' + post.title + '</button></li>').join("") +
     '</ul>' : empty(isDemo ? "Nenhuma falha neste período." : "Dados operacionais indisponíveis.");
-  const priorReach = sum(data.previous,"reach");
-  const delta = priorReach ? (sum(data.current,"reach") / priorReach - 1)*100 : null;
-  $("insights").innerHTML = data.current.length ? '<ul class="detail-list"><li>' +
-    (delta === null ? "Sem base equivalente para comparar o alcance." : "O alcance diário acumulado variou " + decimal.format(delta) + "% em relação ao período anterior.") +
-    '</li><li>' + (ranked.length ? ranked[0].title + " liderou o alcance entre os conteúdos disponíveis." : "Sem publicações classificadas no período.") +
-    '</li></ul>' : empty("Os insights aparecem quando há métricas suficientes.");
+
 }
 
 
@@ -282,7 +307,7 @@ function renderTable() {
   const pages = Math.ceil(filtered.length/pageSize);
   page = Math.min(page,pages);
   const cell = (label,content) => '<td data-label="' + label + '">' + content + '</td>';
-  $("activity-table").innerHTML = '<div class="table-wrap"><table><thead><tr>' +
+  $("activity-table").innerHTML = '<div class="table-wrap scroll-region"><table><thead><tr>' +
     ["Publicação","Conta","Atividade","Status","Data","Ações"].map((label) => '<th scope="col">' + label + '</th>').join("") +
     '</tr></thead><tbody>' + filtered.slice((page-1)*pageSize,page*pageSize).map((post) =>
     '<tr>' + cell("Publicação",'<span class="entry">' + icon(post.format==="Reel"?"posts":"media") + post.title + '</span>') +
@@ -306,15 +331,23 @@ function scheduleElement(tag, className, content) {
   return element;
 }
 
+function scheduledTag(label, symbol, kind) {
+  const tag = scheduleElement("span","scheduled-tag scheduled-tag-"+kind);
+  if (symbol) tag.innerHTML = icon(symbol);
+  tag.append(scheduleElement("span","",label));
+  return tag;
+}
+
 function scheduledCard(post) {
   const title = post.title || post.format + " sem título";
   const card = scheduleElement("button","scheduled-post");
   card.type = "button";
   card.dataset.schedule = post.occurrence;
-  card.dataset.tint = [...post.occurrence].reduce((hash, char) => (hash * 31 + char.codePointAt(0)) % 7,0);
+  card.dataset.publicationFormat = ({Story:"story",Reel:"reel",Carrossel:"carousel",Imagem:"feed",Feed:"feed"})[post.format] ?? "unknown";
   const thumb = scheduleElement("span","scheduled-thumb");
   thumb.setAttribute("aria-hidden","true");
-  thumb.innerHTML = icon(({Reel:"video",Carrossel:"layers",Imagem:"image",Story:"phone"})[post.format] ?? "calendar");
+  const formatIcon = publicationFormatIcons[post.format];
+  thumb.innerHTML = icon(formatIcon ?? "calendar");
   if (post.cover === "aurora" || post.cover === "texturas") {
     const img = document.createElement("img");
     img.alt = "";
@@ -324,33 +357,64 @@ function scheduledCard(post) {
     thumb.append(img);
   }
   const body = scheduleElement("span","scheduled-copy");
-  body.append(scheduleElement("strong","",title),scheduleElement("span","scheduled-meta",post.time + " · " + accountName(post.account)));
-  const badges = scheduleElement("span","scheduled-badges");
-  const status = scheduleElement("span","scheduled-status",post.status);
-  status.dataset.status = post.status;
-  badges.append(scheduleElement("span","",""+post.format),status);
-  card.append(thumb,body,badges);
+  const destinations = post.destinations ?? [];
+  const differentTimes = destinations.some(destination => destination.scheduledAt &&
+    Date.parse(destination.scheduledAt) !== Date.parse(post.scheduledAt));
+  const time = differentTimes ? "Horários diferentes" : post.time;
+  function detail(symbol, value, kind) {
+    const item = scheduleElement("span","scheduled-meta-item scheduled-"+kind);
+    item.innerHTML = icon(symbol);
+    item.append(scheduleElement("span","",value));
+    item.title = value;
+    return item;
+  }
+  const client = detail("building",post.clientName || "Cliente não informado","client");
+  const clock = detail("clock",time,"time");
+  const group = scheduleElement("span","scheduled-meta-item scheduled-destinations");
+  group.append(...publicationNetworkBadges(destinations,icon));
+  const heading = scheduleElement("strong","",title);
+  heading.title = title;
+  body.append(heading,client);
+  const accent = scheduleElement("span","scheduled-accent");
+  accent.setAttribute("aria-hidden","true");
+  card.append(thumb,accent,body,group,clock,publicationFormatTag(post.format,icon));
+  if (post.status === "Agendado") card.append(scheduledTag(post.status,"check","status"));
   return card;
 }
 
+const scheduledList = $("scheduled-list");
+const scheduledViewport = scheduledList.parentElement;
+function updateScheduledFade() {
+  const remaining = scheduledList.scrollHeight - scheduledList.clientHeight - scheduledList.scrollTop;
+  scheduledViewport.dataset.fadeTop = String(scheduledList.scrollTop > 1);
+  scheduledViewport.dataset.fadeBottom = String(remaining > 1);
+}
+const scheduledResize = new ResizeObserver(updateScheduledFade);
+scheduledList.addEventListener("scroll",updateScheduledFade,{passive:true});
+
 function renderScheduledPosts(data) {
-  const list = $("scheduled-list");
+  const list = scheduledList;
+  scheduledResize.disconnect();
+  scheduledResize.observe(list);
   list.replaceChildren();
   list.setAttribute("aria-busy","false");
   list.scrollTop = 0;
   try {
-    visibleSchedules = selectScheduledPosts(isDemo ? demoSchedules : [],new Set(data.accounts.map(({id}) => id)),data.start,data.end,timezone);
+    visibleSchedules = selectActiveSchedules(isDemo ? demoSchedules : [],new Set(data.accounts.map(({id}) => id)),
+      data.start,data.end,timezone,isDemo ? Date.parse(demo.now) : Date.now());
   } catch {
     visibleSchedules = [];
     const error = scheduleElement("p","","Não foi possível carregar os posts programados.");
     error.setAttribute("role","alert");
     list.append(error);
+    updateScheduledFade();
     return;
   }
   if (!visibleSchedules.length) {
     list.append(scheduleElement("strong","",data.accounts.length ?
-      "Nenhuma publicação programada neste período." : "Nenhuma conta do Instagram conectada."),
-      scheduleElement("p","muted",data.accounts.length ? "Experimente outro período ou consulte a agenda." : "Os agendamentos aparecem quando houver uma fonte autorizada."));
+      "Nenhum post programado neste período." : "Nenhuma conta do Instagram conectada."),
+      scheduleElement("p","muted",data.accounts.length ? "Confira outro período ou acesse a agenda para programar uma publicação." : "Os agendamentos aparecem quando houver uma fonte autorizada."));
+    updateScheduledFade();
     return;
   }
   let rendered = 0, lastDay, group;
@@ -362,6 +426,7 @@ function renderScheduledPosts(data) {
       if (lastDay !== post.day) {
         const heading = scheduleElement("h3","scheduled-day",scheduleDayLabel.format(new Date(post.day + "T12:00:00Z")));
         group = scheduleElement("ul","scheduled-group");
+        scheduledResize.observe(group);
         list.insertBefore(heading,more);
         list.insertBefore(group,more);
         lastDay = post.day;
@@ -378,7 +443,11 @@ function renderScheduledPosts(data) {
   }
   list.append(more);
   appendPage();
-  more.addEventListener("click",() => appendPage()?.focus());
+  updateScheduledFade();
+  more.addEventListener("click",() => {
+    appendPage()?.focus();
+    updateScheduledFade();
+  });
 }
 
 function refresh() {
@@ -390,9 +459,15 @@ function refresh() {
   renderScheduledPosts(data);
   renderEditorial(data);
   renderTable();
-  const {account,period} = appliedFilters;
-  $("filter-trigger").setAttribute("aria-label", account === "all" && period === "30" ? "Filtrar resultados" : "Filtrar resultados, filtros ativos");
-  for (const [key,value] of Object.entries({workspace:activeWorkspace?.id,account,period,
+  const {client,account,period} = appliedFilters;
+  const count = ["client","account","period"].filter(key => appliedFilters[key] !== defaultFilters[key]).length;
+  const badge = $("filter-count");
+  if (count) badge.textContent = count;
+  badge.dataset.active = String(count > 0);
+  $("filter-trigger").setAttribute("aria-label", count
+    ? "Filtrar resultados, " + count + (count === 1 ? " filtro ativo" : " filtros ativos")
+    : "Filtrar resultados");
+  for (const [key,value] of Object.entries({workspace:activeWorkspace?.id,client,account,period,
     start:period==="custom"?selected.start:"",end:period==="custom"?selected.end:""})) {
     if (value) query.set(key,value); else query.delete(key);
   }
@@ -449,149 +524,54 @@ $("profile-form").addEventListener("submit", (event) => {
 });
 renderProfile();
 
-const scrollIndicators = new Map();
-const scrollIdleDelay = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--scrollbar-hide-delay"));
-const customScrollbars = matchMedia("(hover:hover) and (pointer:fine) and (forced-colors:none)");
-let scrollFrame = 0;
-
-function paintScrollIndicators() {
-  scrollFrame = 0;
-  const root = document.documentElement;
-  for (const [scroller, state] of scrollIndicators) {
-    const documentScroll = scroller === root;
-    const bounds = documentScroll ? { left:0, top:0, right:innerWidth, bottom:innerHeight } : scroller.getBoundingClientRect();
-    const clip = !documentScroll && scroller.closest(".workspace");
-    const clipBounds = clip && clip !== scroller ? clip.getBoundingClientRect() : null;
-    for (const axis of ["vertical", "horizontal"]) {
-      const vertical = axis === "vertical";
-      const node = state[axis];
-      const viewport = vertical ? scroller.clientHeight : scroller.clientWidth;
-      const extent = vertical ? scroller.scrollHeight : scroller.scrollWidth;
-      const position = vertical ? scroller.scrollTop : scroller.scrollLeft;
-      const trackStart = (vertical ? bounds.top : bounds.left) + 2;
-      const trackSize = Math.max(0, viewport - 4);
-      const thumbSize = Math.min(trackSize, Math.max(20, trackSize * viewport / extent));
-      const start = trackStart + (trackSize - thumbSize) * Math.max(0, position) / Math.max(1, extent - viewport);
-      const end = start + thumbSize;
-      const min = Math.max(start, clipBounds ? vertical ? clipBounds.top : clipBounds.left : 0);
-      const max = Math.min(end, vertical ? innerHeight : innerWidth,
-        clipBounds ? vertical ? clipBounds.bottom : clipBounds.right : Infinity);
-      node.hidden = extent <= viewport || max <= min;
-      if (node.hidden) continue;
-      const cross = vertical ? bounds.right : bounds.bottom;
-      node.style.left = (vertical ? cross - 7 : min) + "px";
-      node.style.top = (vertical ? min : cross - 7) + "px";
-      node.style[vertical ? "height" : "width"] = max - min + "px";
-    }
-  }
-}
-
-function scheduleScrollPaint() {
-  if (!scrollFrame) scrollFrame = requestAnimationFrame(paintScrollIndicators);
-}
-
-document.addEventListener("scroll", (event) => {
-  if (!customScrollbars.matches) return;
-  const scroller = event.target === document ? document.documentElement : event.target;
-  if (!(scroller instanceof HTMLElement)) return;
-  let state = scrollIndicators.get(scroller);
-  if (!state) {
-    const makeThumb = (axis) => {
-      const element = document.createElement("span");
-      element.className = "scroll-indicator " + axis;
-      element.setAttribute("aria-hidden", "true");
-      (scroller.closest("dialog") ?? document.body).append(element);
-      return element;
-    };
-    state = { vertical:makeThumb("vertical"), horizontal:makeThumb("horizontal") };
-    scrollIndicators.set(scroller,state);
-    state.animationFrame = requestAnimationFrame(() => {
-      state.animationFrame = requestAnimationFrame(() => {
-        state.animationFrame = 0;
-        state.vertical.dataset.visible = "true";
-        state.horizontal.dataset.visible = "true";
-      });
-    });
-  } else if (!state.animationFrame) {
-    state.vertical.dataset.visible = "true";
-    state.horizontal.dataset.visible = "true";
-  }
-  scroller.dataset.scrolling = "true";
-  clearTimeout(state.idle);
-  clearTimeout(state.remove);
-  state.idle = setTimeout(() => {
-    delete scroller.dataset.scrolling;
-    delete state.vertical.dataset.visible;
-    delete state.horizontal.dataset.visible;
-    state.remove = setTimeout(() => {
-      state.vertical.remove();
-      state.horizontal.remove();
-      scrollIndicators.delete(scroller);
-    }, 310);
-  }, scrollIdleDelay);
-  scheduleScrollPaint();
-}, { capture: true, passive: true });
-window.addEventListener("resize",scheduleScrollPaint,{ passive:true });
-
-
 const filterPanel = $("filter-panel");
 const filterTrigger = $("filter-trigger");
 const filterForm = $("scope");
-const accountChoices = [{id:"all", name:"Todas as contas"}, ...scopedAccounts];
-for (const {id,name} of accountChoices) {
-  const label = document.createElement("label");
-  const input = document.createElement("input");
-  input.type = "radio";
-  input.name = "account";
-  input.value = id;
-  const caption = document.createElement("span");
-  caption.textContent = name;
-  label.dataset.search = [name,scopedAccounts.find(account => account.id === id)?.displayName].filter(Boolean).join(" ");
-  const avatar = document.createElement("span");
-  avatar.className = "account-fallback";
-  avatar.setAttribute("aria-hidden","true");
-  avatar.textContent = id === "all" ? "" : name.replace(/^@/,"").slice(0,1).toUpperCase();
-  if (id === "all") avatar.innerHTML = icon("users-round");
-  label.append(input, avatar, caption);
-  $("account-options").append(label);
+const clientChoices = [{id:"all",name:"Todos os clientes"},...scopedClients];
+let accountChoices = [];
+function renderScopeChoices(key, choices, selected) {
+  $(key+"-options").replaceChildren(...choices.map(({id,name}) => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = key;
+    input.value = id;
+    input.checked = id === selected;
+    const caption = scheduleElement("span","",name);
+    label.dataset.search = name;
+    label.title = name;
+    const avatar = scheduleElement("span","account-fallback",id === "all" ? "" : name[0].toUpperCase());
+    avatar.setAttribute("aria-hidden","true");
+    if (id === "all") avatar.innerHTML = icon("users-round");
+    label.append(input,avatar,caption);
+    return label;
+  }));
+  $(key+"-selection").textContent = choices.find(({id}) => id === selected).name;
+  $(key+"-search").value = "";
+  $(key+"-search").dispatchEvent(new Event("input"));
 }
-
+function renderNetworks(client, account = "all") {
+  $("network-field").hidden = client === "all";
+  accountChoices = [{id:"all",name:"Todas as redes"},...accountsFor(client)
+    .filter(() => client !== "all").map(({id,platform,name}) => ({id,name:platform+" — "+name}))];
+  renderScopeChoices("account",accountChoices,account);
+  $("account-toggle").disabled = accountChoices.length === 1;
+  $("network-empty").hidden = client === "all" || accountChoices.length > 1;
+}
 function resetFilterDraft(filters) {
-  for (const input of filterForm.querySelectorAll('input[name="account"]')) {
-    input.checked = input.value === filters.account;
-  }
+  closePicker();
+  renderScopeChoices("client",clientChoices,filters.client);
+  renderNetworks(filters.client,filters.account);
+  $("no-clients").hidden = scopedClients.length > 0;
   filterForm.elements.period.value = filters.period;
   $("date-start").value = filters.period === "custom" ? filters.start : "";
   $("date-end").value = filters.period === "custom" ? filters.end : "";
-  $("account-selection").textContent = accountChoices.find(({id}) => id === filters.account).name;
-  closePicker();
   updateDateSummary();
   $("custom-dates").hidden = filters.period !== "custom";
   closeCalendarMenus();
   if (filters.period === "custom") moveCalendar(filters.end,false);
-  $("account-search").value = "";
-  $("account-search").dispatchEvent(new Event("input"));
   $("scope-error").hidden = true;
 }
-$("account-search").addEventListener("input", (event) => {
-  const term = event.target.value.trim().toLocaleLowerCase("pt-BR");
-  let matches = 0;
-  for (const label of $("account-options").children) {
-    label.hidden = !label.dataset.search.toLocaleLowerCase("pt-BR").includes(term);
-    if (!label.hidden) matches++;
-  }
-  $("account-empty").hidden = matches > 0 && scopedAccounts.length > 0;
-  $("account-empty").textContent = scopedAccounts.length ? "Nenhuma conta encontrada." : "Nenhuma conta conectada.";
-});
-$("account-search").addEventListener("keydown", (event) => {
-  if (event.key === "Enter") event.preventDefault();
-  if (event.key === "ArrowDown") {
-    event.preventDefault();
-    const options = $("account-options");
-    (options.querySelector("label:not([hidden]) input:checked") ??
-      options.querySelector("label:not([hidden]) input"))?.focus();
-  }
-});
 let openPicker = null;
 function closePicker(restoreFocus = false) {
   if (!openPicker) return;
@@ -608,19 +588,35 @@ function showPicker(toggle) {
   $(toggle.getAttribute("aria-controls")).hidden = false;
   toggle.setAttribute("aria-expanded","true");
 }
-$("account-toggle").addEventListener("click", (event) => {
-  showPicker(event.currentTarget);
-  if (openPicker) {
-    $("account-search").value = "";
-    $("account-search").dispatchEvent(new Event("input"));
-    $("account-search").focus();
-  }
-});
-$("account-options").addEventListener("click", (event) => {
-  if (event.target.name !== "account") return;
-  $("account-selection").textContent = accountChoices.find(({id}) => id === event.target.value).name;
-  closePicker(true);
-});
+for (const key of ["client","account"]) {
+  const search = $(key+"-search"), options = $(key+"-options");
+  search.addEventListener("input",() => {
+    const normalize = value => value.normalize("NFD").replace(/\p{M}/gu,"").toLocaleLowerCase("pt-BR");
+    const term = normalize(search.value.trim());
+    for (const label of options.children) label.hidden = !normalize(label.dataset.search).includes(term);
+    const empty = $(key+"-empty");
+    empty.hidden = Boolean(options.querySelector("label:not([hidden])"));
+    empty.textContent = key === "client" ? "Nenhum cliente encontrado." : "Nenhuma rede encontrada.";
+  });
+  search.addEventListener("keydown",event => {
+    if (event.key === "Enter") event.preventDefault();
+    if (event.key !== "ArrowDown") return;
+    event.preventDefault();
+    (options.querySelector("label:not([hidden]) input:checked") ??
+      options.querySelector("label:not([hidden]) input"))?.focus();
+  });
+  $(key+"-toggle").addEventListener("click",event => {
+    showPicker(event.currentTarget);
+    if (openPicker) {
+      search.value = "";
+      search.dispatchEvent(new Event("input"));
+      search.focus();
+    }
+  });
+  options.addEventListener("click",event => {
+    if (event.target.name === key) closePicker(true);
+  });
+}
 filterPanel.addEventListener("click", (event) => {
   for (const menu of calendarMenus) {
     if (!event.composedPath().includes(menu)) menu.open = false;
@@ -786,8 +782,13 @@ function repositionOpenFilters() {
   if (filterPanel.matches(":popover-open")) placeFilterPanel();
 }
 window.addEventListener("resize", repositionOpenFilters);
-document.querySelector(".workspace").addEventListener("scroll", repositionOpenFilters, { passive:true });
+const contentViewport = document.querySelector(".workspace");
+contentViewport.addEventListener("scroll", repositionOpenFilters, { passive:true });
 filterForm.addEventListener("change", (event) => {
+  if (event.target.name === "client") {
+    $("client-selection").textContent = clientChoices.find(({id}) => id === event.target.value).name;
+    renderNetworks(event.target.value);
+  }
   if (event.target.name === "account") {
     $("account-selection").textContent = accountChoices.find(({id}) => id === event.target.value).name;
   }
@@ -804,7 +805,15 @@ filterForm.noValidate = true;
 filterForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const draft = Object.fromEntries(new FormData(filterForm));
-  if (!accountChoices.some(({id}) => id === draft.account) || !range(draft)) {
+  draft.account ??= "all";
+  if (!clientChoices.some(({id}) => id === draft.client) ||
+    (draft.account !== "all" && !accountsFor(draft.client,draft.account).length)) {
+    $("scope-error").textContent = "Selecione um cliente e uma rede disponíveis.";
+    $("scope-error").hidden = false;
+    $("client-toggle").focus();
+    return;
+  }
+  if (!range(draft)) {
     $("scope-error").textContent = "Escolha duas datas em ordem, dentro das datas disponíveis, em um intervalo de até 90 dias.";
     $("scope-error").hidden = false;
     $("calendar-days").querySelector('[tabindex="0"]')?.focus();
@@ -835,8 +844,17 @@ document.addEventListener("click",(event) => {
   if (!button) return;
   if (button.dataset.schedule) {
     const post = visibleSchedules.find(({occurrence}) => occurrence === button.dataset.schedule);
-    if (post) openDialog(post.title || post.format + " sem título",[post.format+" · "+accountName(post.account),
-      "Status: "+post.status,"Programado para "+post.day.split("-").reverse().join("/")+" às "+post.time+" · horário de Brasília"]);
+    if (post) {
+      const dateTime = new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,dateStyle:"short",timeStyle:"short"});
+      const destinations = (post.destinations ?? []).map(destination => {
+        const timestamp = Date.parse(destination.scheduledAt);
+        return destinationName(destination) + (Number.isFinite(timestamp) ? " · "+dateTime.format(timestamp) : " · Horário não informado");
+      });
+      openDialog(post.title || post.format + " sem título",[post.format+" · "+accountName(post.account),
+        post.clientName || "Cliente não informado","Status: "+post.status,
+        "Programado para "+post.day.split("-").reverse().join("/")+" às "+post.time+" · horário de Brasília",
+        ...(isDemo && destinations.length ? ["Destinos demonstrativos"] : []),...destinations]);
+    }
   }
   if (button.dataset.post) {
     const post=posts.find(({id}) => id===Number(button.dataset.post));
@@ -852,6 +870,11 @@ document.addEventListener("click",(event) => {
 });
 function updateNavigation() {
   const current=location.hash || "#overview-top";
+  const route = current.slice(1);
+  const main = document.querySelector(".workspace main");
+  main.dataset.operation = ["activities","agenda","attention"].includes(route) ? route : "";
+  if (main.dataset.operation || route === "overview-top") contentViewport.scrollTo({top:0,behavior:"instant"});
+  else $(route)?.scrollIntoView();
   document.querySelectorAll(".side-nav a,.sidebar-footer a").forEach((link) => {
     if (link.hash===current) link.setAttribute("aria-current","location");
     else link.removeAttribute("aria-current");
@@ -881,3 +904,65 @@ sideMenu.addEventListener("keydown", (event) => {
   }
 });
 refresh();
+
+function installScrollIndicator(viewport, surface, content, fade = false) {
+  const indicator = document.createElement("div");
+  indicator.className = "scroll-indicator";
+  indicator.setAttribute("aria-hidden","true");
+  const thumb = indicator.appendChild(document.createElement("span"));
+  surface.append(indicator);
+  viewport.dataset.overlayScroll = "";
+  let frame = 0, timeout, dragging = null;
+  let range = 0, travel = 0;
+  function measure() {
+    const height = viewport.clientHeight;
+    const total = viewport.scrollHeight;
+    range = Math.max(0,total-height);
+    const size = range > 1 ? Math.min(height,Math.max(24,height*height/total)) : 0;
+    travel = height-size;
+    indicator.style.setProperty("--thumb-size",size+"px");
+    indicator.style.setProperty("--thumb-offset",(size && range ? Math.max(0,Math.min(1,viewport.scrollTop/range))*travel : 0)+"px");
+    indicator.hidden = !size;
+    if (fade) {
+      surface.dataset.fadeTop = String(viewport.scrollTop>1);
+      surface.dataset.fadeBottom = String(range-viewport.scrollTop>1);
+    }
+  }
+  function queueMeasure() {
+    if (!frame) frame = requestAnimationFrame(() => {
+      frame = 0;
+      measure();
+    });
+  }
+  function show() {
+    queueMeasure();
+    indicator.dataset.visible = "true";
+    clearTimeout(timeout);
+    if (!dragging) timeout = setTimeout(() => { indicator.dataset.visible = "false"; },650);
+  }
+  viewport.addEventListener("scroll",show,{passive:true});
+  thumb.addEventListener("pointerdown",event => {
+    if (event.button !== 0 || !travel || event.pointerType === "touch") return;
+    event.preventDefault();
+    dragging = {y:event.clientY,top:viewport.scrollTop};
+    thumb.setPointerCapture(event.pointerId);
+    show();
+  });
+  thumb.addEventListener("pointermove",event => {
+    if (dragging && travel) viewport.scrollTop = dragging.top+(event.clientY-dragging.y)*range/travel;
+  });
+  thumb.addEventListener("lostpointercapture",() => {
+    dragging = null;
+    show();
+  });
+  const observer = new ResizeObserver(queueMeasure);
+  observer.observe(viewport);
+  if (content) observer.observe(content);
+  const mutations = new MutationObserver(queueMeasure);
+  mutations.observe(viewport,{childList:true,subtree:true});
+  measure();
+}
+
+installScrollIndicator(contentViewport,contentViewport.parentElement,$("content"),true);
+const navViewport = document.querySelector(".side-nav");
+installScrollIndicator(navViewport,navViewport.parentElement);

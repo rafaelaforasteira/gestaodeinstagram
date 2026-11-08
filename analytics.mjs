@@ -32,6 +32,19 @@ export function percentChange(current, previous) {
     ? (current - previous) / previous * 100 : null;
 }
 
+export function selectActiveSchedules(records, accountIds, start, end, timezone, now) {
+  const active = records.filter(record => record.status === "Agendado" && Date.parse(record.scheduledAt) >= now);
+  return selectScheduledPosts(active,accountIds,start,end,timezone);
+}
+
+export function accountsInScope(accounts, clients, workspace, client = "all", account = "all") {
+  const authorized = new Set(clients.filter(item => item.workspace === workspace &&
+    (client === "all" || item.id === client)).map(item => item.id));
+  if (client === "all" && account !== "all") return [];
+  return accounts.filter(item => item.workspace === workspace && authorized.has(item.client) &&
+    item.connected === true && (account === "all" || item.id === account));
+}
+
 export function selectScheduledPosts(records, accountIds, start, end, timezone) {
   const dates = new Intl.DateTimeFormat("sv-SE",{timeZone:timezone,year:"numeric",month:"2-digit",day:"2-digit"});
   const times = new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
@@ -50,4 +63,23 @@ export function sum(rows, key) {
 export function engagement(rows) {
   const reach = sum(rows, "reach");
   return reach ? sum(rows, "interactions") / reach * 100 : null;
+}
+
+const publicationFormats = {Reel:"reel",Carrossel:"carousel",Imagem:"feed",Feed:"feed",Story:"story"};
+
+export function comparePublicationFormats(rows, accounts, start, end, metric) {
+  const eligible = rows.filter(post => post.status === "Publicado");
+  const {current,previous,previousStart} = selectPeriods(eligible,accounts,start,end);
+  function summarize(posts, format) {
+    const group = posts.filter(post => publicationFormats[post.format] === format);
+    const values = group.map(post => post[metric]).filter(value => Number.isFinite(value) && value >= 0);
+    return {total:group.length, measured:values.length,
+      value:values.length ? values.reduce((mean,value,index) => mean+(value-mean)/(index+1),0) : null};
+  }
+  const formats = ["reel","carousel","feed","story"].map(format => {
+    const now = summarize(current,format), before = summarize(previous,format);
+    const change = percentChange(now.value,before.value);
+    return {format,now,before,change:Number.isFinite(change) ? change : null};
+  });
+  return {formats,previousStart,previousEnd:offsetDay(start,-1)};
 }

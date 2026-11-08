@@ -7,6 +7,7 @@ const files = {
   "/fonts/Geist-Variable.woff2": ["fonts/Geist-Variable.woff2", "font/woff2"],
   "/fonts/GeistMono-Variable.woff2": ["fonts/GeistMono-Variable.woff2", "font/woff2"],
   "/dashboard.mjs": ["dashboard.mjs", "text/javascript"],
+  "/editorial.mjs": ["editorial.mjs", "text/javascript"],
   "/analytics.mjs": ["analytics.mjs", "text/javascript"],
   "/demo-data.mjs": ["demo-data.mjs", "text/javascript"],
   "/aurora.svg": ["aurora.svg", "image/svg+xml"],

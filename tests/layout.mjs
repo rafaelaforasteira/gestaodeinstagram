@@ -12,9 +12,34 @@ const resolutions = [
 
 const browser = await chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
 try {
+  const editorialPage = await browser.newPage({viewport:{width:1366,height:768}});
+  await editorialPage.goto(new URL("?demo=1&period=7",url).href);
+  assert.equal(await editorialPage.locator("#featured .editorial-post").count(),3);
+  assert.equal(await editorialPage.locator("#formats .format-comparison").count(),4);
+  assert.equal(await editorialPage.locator("#formats .format-comparison [data-series=current] strong").filter({hasText:"—"}).count(),0);
+  await editorialPage.getByRole("radio",{name:"Curtidas",exact:true}).check();
+  assert.match(await editorialPage.locator('#formats [data-format="story"] [data-series=current] strong').innerText(), /—/);
+  await editorialPage.goto(new URL("?demo=1&period=7&account=aurora",url).href);
+  assert.equal(await editorialPage.locator("#featured").getByText("Casa Nova",{exact:false}).count(),0);
+  await editorialPage.goto(new URL("?demo=1&period=7",url).href);
+  const featured = editorialPage.locator("#featured");
+  const cards = featured.locator(".editorial-post");
+  assert.deepEqual(await cards.locator(".publication-place").allTextContents(),["1º lugar","2º lugar","3º lugar"]);
+  assert(await cards.locator(".publication-preview").evaluateAll(nodes => nodes.every(node => Math.abs(node.clientWidth/node.clientHeight-.8)<.01)));
+  assert.equal(await cards.locator(".publication-metrics dd").count(),18);
+  assert.deepEqual(await cards.locator(".publication-network").evaluateAll(groups => groups.map(group => group.children.length)),[3,2,3]);
+  const reachIcon = cards.first().locator(".publication-metrics dt").first();
+  await reachIcon.focus();
+  assert(await reachIcon.getByRole("tooltip",{name:"Alcance"}).isVisible());
+  await cards.first().locator(".publication-preview").click();
+  assert.equal(await editorialPage.locator("dialog[open]").count(),0);
+  await mkdir("test-results/layout", {recursive:true});
+  await editorialPage.close();
   const page = await browser.newPage({ reducedMotion: "reduce" });
   await page.goto(url.href);
-  await page.getByRole("table").waitFor();
+  assert.equal(new URL(page.url()).searchParams.get("period"),"today");
+  assert(!(await page.locator('#filter-count[data-active="true"]').count()));
+  await page.locator(".editorial-post").first().waitFor();
   await page.evaluate(() => document.fonts.ready);
   assert(await page.evaluate(() => getComputedStyle(document.querySelector(".metric .value")).fontFamily.includes("Geist Sans") &&
     document.fonts.check('600 26px "Geist Sans"')));
@@ -24,11 +49,18 @@ try {
   assert.equal(await page.locator("#metrics .metric").last().locator(".value").innerText(), "12.320");
   await page.getByRole("button", { name:"Sobre Engajados" }).focus();
   assert(await page.getByRole("tooltip").isVisible());
-  assert.equal(await page.locator("#featured img").count(), 2);
+  assert.equal(await page.locator("#featured img").count(), 3);
+  const ranking = page.locator("#featured .editorial-post");
+  assert.match(await ranking.first().innerText(), /Coleção Aurora/);
+  assert.equal(await ranking.first().locator(".publication-metrics dt").count(),6);
+  await page.getByRole("radio",{name:"Curtidas",exact:true}).check();
+  assert.match(await page.locator("#formats").innerText(), /%/);
+  await page.getByRole("radio",{name:"Visualizações",exact:true}).check();
   const scheduled = page.getByRole("region", { name:"Posts programados", exact:true });
   assert.equal(await scheduled.locator("input,select").count(), 0);
-  assert.equal(await scheduled.locator(".scheduled-post").count(), 5);
-  assert(await scheduled.getByText("Falha", { exact:true }).isVisible());
+  assert.equal(await scheduled.locator(".scheduled-post").count(), 7);
+  assert.equal(await scheduled.getByText(/Publicado|Falha/).count(),0);
+  assert.equal(await scheduled.locator(".scheduled-accent").count(),7);
   assert.equal(await page.locator("#sidebar-toggle use").count(), 0);
   assert.equal(await page.locator("#sidebar-toggle path").getAttribute("d"), "m9 18 6-6-6-6");
   await mkdir("test-results/layout", { recursive: true });
@@ -47,21 +79,20 @@ try {
         viewport: document.documentElement.clientWidth,
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         frame: Math.round(frame.width),
-        cardsFit: [...document.querySelectorAll("main .card")].every((card) => {
+        cardsFit: [...document.querySelectorAll("main .card:not(.operational-pages .card)")].every((card) => {
           const bounds = card.getBoundingClientRect();
           return bounds.width > 0 && bounds.left >= main.left - 1 && bounds.right <= main.right + 1;
         }),
         widgetsFit: box(".heatmap-scroll").right <= box(".consistency-widget").right && (box(".consistency-widget").top !== box(".scheduled-widget").top || Math.abs(box(".consistency-widget").width - box(".scheduled-widget").width) < 1 && box(".consistency-widget").height === box(".scheduled-widget").height),
-        tableOverflow: document.querySelector(".table-wrap").scrollWidth - document.querySelector(".table-wrap").clientWidth,
-        table: Math.round(box(".table-wrap").width),
         overlaps,
       };
     });
     assert(layout.overflow <= 0 && layout.cardsFit && layout.widgetsFit && !layout.overlaps,
       `${width}×${height}: ${JSON.stringify(layout)}`);
-    assert(layout.viewport - layout.frame <= 81, "O frame deixou margens excessivas");
-    assert(layout.tableOverflow <= 1, "Tabela com conteúdo horizontal fora da área");
-    console.log(`${width}×${height}: frame ${layout.frame}px, tabela ${layout.table}px`);
+    assert(layout.viewport - layout.frame <= 89, "O frame deixou margens excessivas além da barra nativa");
+    console.log(`${width}×${height}: frame ${layout.frame}px`);
+    await page.locator("#editorial").screenshot({style:".skip:not(:focus){visibility:hidden}",path:`test-results/layout/editorial-${width}x${height}.png`});
+    await page.locator(".workspace").evaluate(pane => pane.scrollTo(0,0));
     await page.screenshot({ path: `test-results/layout/${width}x${height}.png` });
     await page.locator("#filter-trigger").click();
     const panel = page.getByRole("dialog", { name: "Filtros" });
@@ -82,22 +113,33 @@ try {
   const initial = await reach.innerText();
   const filter = page.locator("#filter-trigger");
   await filter.click();
+  const clientToggle = page.locator("#client-toggle");
   const accountToggle = page.locator("#account-toggle");
+  assert(!(await accountToggle.isVisible()));
+  await clientToggle.click();
+  await page.getByRole("searchbox", {name:"Buscar cliente"}).fill("aurora");
+  assert.equal(await page.getByRole("radio", {name:"Casanova Design"}).count(),0);
+  await page.getByRole("radio", {name:"Aurora Studio"}).click();
   await accountToggle.click();
-  await page.getByRole("searchbox", { name:"Buscar conta" }).fill("aurora");
-  assert.equal(await page.getByRole("radio", { name:"@casanova.design" }).count(),0);
-  await page.getByRole("radio", { name:"@aurora.studio" }).click();
+  await page.getByRole("searchbox", { name:"Buscar rede" }).fill("aurora");
+  await page.getByRole("radio", { name:"Instagram — @aurora.studio" }).click();
+  await clientToggle.click();
+  await page.getByRole("radio", {name:"Casanova Design"}).click();
+  assert.equal(await accountToggle.innerText(),"Todas as redes");
   assert.equal(await reach.innerText(), initial);
   await page.keyboard.press("Escape");
   await filter.click();
-  assert.equal(await accountToggle.innerText(),"Todas as contas");
+  assert.equal(await clientToggle.innerText(),"Todos os clientes");
+  assert(!(await accountToggle.isVisible()));
   await page.getByText("Últimos 7 dias", { exact: true }).click();
   await page.locator("#greeting").click();
   await page.getByRole("dialog", { name: "Filtros" }).waitFor({ state: "hidden" });
   await filter.click();
-  assert(await page.getByRole("radio", { name: "Últimos 30 dias" }).isChecked());
+  assert(await page.getByRole("radio", { name: "Hoje", exact:true }).isChecked());
+  await clientToggle.click();
+  await page.getByRole("radio", {name:"Aurora Studio"}).click();
   await accountToggle.click();
-  await page.getByRole("radio", { name:"@aurora.studio" }).click();
+  await page.getByRole("radio", { name:"Instagram — @aurora.studio" }).click();
   await page.getByText("Período personalizado", { exact: true }).click();
   await page.locator("#range-calendar").waitFor();
   const month = page.locator("#calendar-month summary");
@@ -114,14 +156,15 @@ try {
   await page.locator('[data-day="2026-11-06"]').click();
   assert.match(await page.locator("#date-summary").innerText(),/06\/11\/2026 até 06\/11\/2026/);
   await page.getByRole("button", { name: "Aplicar filtros" }).click();
-  assert.equal(await filter.getAttribute("aria-label"),"Filtrar resultados, filtros ativos");
+  assert.equal(await filter.getAttribute("aria-label"),"Filtrar resultados, 3 filtros ativos");
+  assert.equal(await page.locator("#filter-count").innerText(),"3");
   assert.equal(await page.locator("#metrics .metric").last().locator(".value").innerText(), "8.420");
   assert.notEqual(await reach.innerText(), initial);
   assert.equal(await page.locator("#consistency button.heat-cell:not(.heat-context)").count(), 1);
   assert(await page.locator("#consistency button.heat-context").count() > 100);
   assert(await page.locator(".heat-week").evaluateAll(weeks => weeks.every(week => week.children.length === 8)));
-  assert.equal(await scheduled.locator(".scheduled-post").count(), 1);
-  await scheduled.getByRole("button", { name:/Coleção Aurora/ }).click();
+  assert.equal(await scheduled.locator(".scheduled-post").count(), 4);
+  await scheduled.getByRole("button", { name:/Lançamento Aurora/ }).click();
   assert.match(await page.getByRole("dialog").innerText(), /09:00/);
   await page.getByRole("button", { name:"Fechar", exact:true }).click();
   await page.locator("#consistency button.heat-cell:not(.heat-context)").focus();
@@ -136,28 +179,34 @@ try {
   assert.equal(await page.locator("#profile-name").innerText(), "Rafael");
   await page.reload();
   assert.equal(await page.locator("#profile-name").innerText(), "Rafael");
+  await page.locator('.side-nav a[href="#activities"]').click();
+  await page.getByRole("table").waitFor();
   await page.getByRole("searchbox").fill("Coleção");
   await page.getByRole("button", { name: "Abrir detalhes de Coleção Aurora" }).click();
   await page.getByRole("dialog").waitFor();
   await page.getByRole("button", { name: "Fechar", exact: true }).click();
+  await page.locator('.side-nav a[href="#overview-top"]').click();
   await filter.click();
   await page.getByRole("button", { name: "Limpar" }).click();
-  assert.equal(await filter.getAttribute("aria-label"),"Filtrar resultados, filtros ativos");
+  assert.equal(await filter.getAttribute("aria-label"),"Filtrar resultados, 3 filtros ativos");
   await page.getByRole("button", { name: "Aplicar filtros" }).click();
   assert.equal(await filter.getAttribute("aria-label"),"Filtrar resultados");
+  assert(!(await page.locator('#filter-count[data-active="true"]').count()));
   assert.equal(await reach.innerText(), initial);
   await page.getByRole("navigation", { name: "Atalhos da Visão Geral" }).getByRole("link", { name: "Agenda" }).click();
   await page.waitForURL((current) => current.hash === "#agenda");
-  assert(await page.locator(".workspace").evaluate((workspace) => workspace.scrollTop > 0), "Não foi possível chegar à agenda");
+  await page.locator("#agenda").waitFor();
   await page.goto(new URL("/",url).href);
   assert(await scheduled.getByText("Nenhuma conta do Instagram conectada.").isVisible());
   assert.deepEqual(await page.locator("#metrics .value").allTextContents(), ["—","—","—","—"]);
   assert.equal(await page.locator("#consistency button.heat-cell").count(), 0);
+  assert.equal(await page.locator("#editorial .empty").count(), 5);
+  await page.locator("#editorial").screenshot({style:".skip:not(:focus){visibility:hidden}",path:"test-results/layout/editorial-empty.png"});
   console.log("Filtros, foco no gráfico, busca, diálogo e navegação verificados.");
 
   const sidebarPage = await browser.newPage({ reducedMotion: "no-preference" });
   await sidebarPage.goto(url.href);
-  await sidebarPage.getByRole("table").waitFor();
+  await sidebarPage.locator(".editorial-post").first().waitFor();
   await sidebarPage.evaluate(() => document.fonts.ready);
   const toggle = sidebarPage.locator("#sidebar-toggle");
   const sideMenu = sidebarPage.locator("#side-menu");
@@ -187,7 +236,7 @@ try {
       toggleBottom: rect("#sidebar-toggle").bottom,
       settingsTop: rect(".sidebar-footer #profile-button").top,
       navBottom: rect(".side-nav").bottom,
-      cardsClear: [...document.querySelectorAll("main .card")].every((card) =>
+      cardsClear: [...document.querySelectorAll("main .card:not(.operational-pages .card)")].every((card) =>
         card.getBoundingClientRect().left >= sidebar.right),
     };
   });
@@ -235,7 +284,7 @@ try {
   await theme.click();
   await sidebarPage.setViewportSize({ width: 390, height: 844 });
   await sidebarPage.goto(url.href);
-  await sidebarPage.getByRole("table").waitFor();
+  await sidebarPage.locator(".editorial-post").first().waitFor();
   assert(!(await toggle.isVisible()));
   assert(await sidebarPage.getByRole("navigation", { name: "Atalhos da Visão Geral" }).isVisible());
   await sidebarPage.screenshot({ path: "test-results/layout/sidebar-mobile-390x844.png" });
@@ -243,86 +292,94 @@ try {
 
   const scrollPage = await browser.newPage({ viewport: { width: 1366, height: 768 } });
   await scrollPage.goto(url.href);
-  await scrollPage.getByRole("table").waitFor();
-  const workspace = scrollPage.locator(".workspace");
-  const thumb = scrollPage.locator(".scroll-indicator.vertical:not([hidden])");
-  const waitForOpacity = (opacity) => scrollPage.waitForFunction((expected) => {
-    const element = document.querySelector(".scroll-indicator.vertical:not([hidden])");
-    return (element ? Number(getComputedStyle(element).opacity) : 0) === expected;
-  }, opacity);
-  await waitForOpacity(0);
-  assert.equal(await workspace.evaluate((element) => getComputedStyle(element).scrollbarWidth), "thin");
-  assert.equal(await workspace.evaluate((element) => getComputedStyle(element).scrollbarColor), "rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)");
-  const before = await workspace.boundingBox();
-  await scrollPage.mouse.move(900, 600);
-  await scrollPage.mouse.wheel(0, 300);
-  await scrollPage.waitForFunction(() => {
-    const element = document.querySelector(".scroll-indicator.vertical[data-visible]:not([hidden])");
-    return element && Number(getComputedStyle(element).opacity) > 0 && Number(getComputedStyle(element).opacity) < 1;
-  });
-  await waitForOpacity(1);
-  assert.equal(await thumb.evaluate((element) => getComputedStyle(element).backgroundColor), "rgb(244, 119, 69)");
-  await scrollPage.screenshot({ path: "test-results/layout/scrollbar-light.png" });
-  await scrollPage.waitForFunction(() => {
-    const element = document.querySelector(".scroll-indicator.vertical:not([hidden])");
-    return element && !element.hasAttribute("data-visible") && Number(getComputedStyle(element).opacity) < 1 &&
-      Number(getComputedStyle(element).opacity) > 0;
-  });
-  await waitForOpacity(0);
-  assert.deepEqual(await workspace.boundingBox(), before);
-  await workspace.focus();
-  await scrollPage.keyboard.press("PageUp");
-  await waitForOpacity(1);
-  await waitForOpacity(0);
-  await scrollPage.getByRole("switch", { name: "Modo escuro" }).click();
-  await scrollPage.mouse.move(900, 600);
-  await scrollPage.mouse.wheel(0, 250);
-  await waitForOpacity(1);
-  assert.equal(await thumb.evaluate((element) => getComputedStyle(element).backgroundColor), "rgba(255, 255, 255, 0.85)");
-  await scrollPage.screenshot({ path: "test-results/layout/scrollbar-dark.png" });
-  await waitForOpacity(0);
+  await scrollPage.locator(".editorial-post").first().waitFor();
   const sidebarBounds = () => scrollPage.evaluate(() => {
     const sidebar = document.querySelector(".app-sidebar").getBoundingClientRect();
     const footer = document.querySelector(".sidebar-footer").getBoundingClientRect();
-    const brand = document.querySelector(".sidebar-brand").getBoundingClientRect();
-    return { top: sidebar.top, bottom: sidebar.bottom, brand: brand.top, footer: footer.bottom };
+    return { top: sidebar.top, bottom: sidebar.bottom, footer: footer.bottom };
   });
+  assert(await scrollPage.evaluate(() => document.scrollingElement === document.documentElement &&
+    getComputedStyle(document.querySelector(".workspace")).overflowY === "auto"));
   for (const expanded of [false, true]) {
-    if (expanded) await scrollPage.getByRole("button", { name: "Expandir menu" }).click();
-    await scrollPage.waitForFunction((width) => document.querySelector(".app-sidebar").offsetWidth === width, expanded ? 260 : 72);
-    for (const [width, height] of [[1366,768],[1440,900],[1920,1080],[2560,1440],[3440,1440],[1024,768]]) {
+    if (expanded) await scrollPage.getByRole("button", {name:"Expandir menu"}).click();
+    await scrollPage.waitForFunction(width => document.querySelector(".app-sidebar").offsetWidth === width,expanded ? 260 : 72);
+    for (const [width,height] of resolutions.filter(([width]) => width >= 1024)) {
       await scrollPage.setViewportSize({width,height});
-      const stable = await sidebarBounds();
-      assert(stable.top >= 0 && stable.bottom <= height && stable.brand >= stable.top && stable.footer <= stable.bottom);
-      for (const [position, fraction] of [["topo", 0], ["meio", .5], ["final", 1]]) {
-        await workspace.evaluate((scroll, part) => { scroll.scrollTop = (scroll.scrollHeight - scroll.clientHeight) * part; }, fraction);
-        assert.deepEqual(await sidebarBounds(), stable);
-        assert.equal(await scrollPage.evaluate(() => window.scrollY), 0);
-        if (width === 1366) await scrollPage.screenshot({ path: `test-results/layout/sidebar-${expanded ? "expandida" : "compacta"}-${position}.png` });
+      await scrollPage.evaluate(() => document.querySelector(".workspace").scrollTo(0,0));
+      const top = await sidebarBounds();
+      for (const fraction of [.5,1]) {
+        await scrollPage.evaluate(part => {
+          const pane = document.querySelector(".workspace");
+          pane.scrollTo(0,(pane.scrollHeight-pane.clientHeight)*part);
+        },fraction);
+        const current = await sidebarBounds();
+        assert(Math.abs(current.top-top.top)<=1 && current.bottom<=height && current.footer<=height);
+        assert(await scrollPage.evaluate(() => {
+          const root = document.scrollingElement;
+          return root.scrollHeight === root.clientHeight && window.scrollY === 0;
+        }));
       }
     }
   }
-  const darkBounds = await sidebarBounds();
-  await scrollPage.getByRole("switch", { name: "Modo escuro" }).click();
-  assert.deepEqual(await sidebarBounds(), darkBounds);
-  for (const position of [0, 1]) {
-    await workspace.evaluate((scroll, part) => { scroll.scrollTop = (scroll.scrollHeight - scroll.clientHeight) * part; }, position);
-    assert.deepEqual(await sidebarBounds(), darkBounds);
-  }
-  await scrollPage.setViewportSize({ width: 1366, height: 420 });
-  await workspace.evaluate((scroll) => { scroll.scrollTop = 0; });
-  await scrollPage.locator(".side-nav").evaluate((nav) => { nav.scrollTop = nav.scrollHeight; });
-  await scrollPage.locator(".side-nav[data-scrolling]").waitFor({ state: "attached" });
-  assert(await scrollPage.locator(".side-nav").evaluate((nav) => nav.scrollTop > 0));
-  assert((await scrollPage.locator(".sidebar-footer").boundingBox()).y < 420);
-  await workspace.focus();
+  await scrollPage.setViewportSize({width:1366,height:768});
+  await scrollPage.evaluate(() => document.querySelector(".workspace").scrollTo(0,0));
+  await scrollPage.locator(".workspace").focus();
   await scrollPage.keyboard.press("PageDown");
-  await scrollPage.waitForFunction(() => document.querySelector(".workspace").scrollTop > 0);
-  await scrollPage.emulateMedia({ reducedMotion: "reduce" });
-  assert(await thumb.evaluateAll((elements) =>
-    elements.every((element) => getComputedStyle(element).transitionDuration === "0s")));
-  await waitForOpacity(0);
-  console.log("Perfil local, tema, scrollbar nativa e posição da sidebar verificados.");
+  await scrollPage.waitForFunction(() => document.querySelector(".workspace").scrollTop>0);
+  const indicator = scrollPage.locator(".content-shell > .scroll-indicator");
+  await indicator.locator("xpath=self::*[@data-visible='true']").waitFor();
+  assert.equal(await indicator.locator("span").evaluate(thumb => getComputedStyle(thumb,"::after").backgroundColor),"rgb(244, 119, 69)");
+  assert.equal(await indicator.locator("span").evaluate(thumb => getComputedStyle(thumb,"::after").width),"1.5px");
+  await scrollPage.screenshot({path:"test-results/layout/app-shell-light.png"});
+  await indicator.locator("xpath=self::*[@data-visible='false']").waitFor();
+  const shell = scrollPage.locator(".content-shell");
+  await scrollPage.locator(".workspace").evaluate(pane => pane.scrollTop = pane.scrollHeight);
+  await shell.locator("xpath=self::*[@data-fade-top='true' and @data-fade-bottom='false']").waitFor();
+  await scrollPage.locator(".workspace").evaluate(pane => pane.scrollTop = 0);
+  await shell.locator("xpath=self::*[@data-fade-top='false' and @data-fade-bottom='true']").waitFor();
+  await scrollPage.locator(".workspace").evaluate(pane => {pane.scrollTop = pane.scrollHeight/3;});
+  await indicator.locator("xpath=self::*[@data-visible='true']").waitFor();
+  const handle = await indicator.locator("span").boundingBox();
+  await scrollPage.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);
+  const oldPosition = await scrollPage.locator(".workspace").evaluate(pane => pane.scrollTop);
+  await scrollPage.mouse.down();
+  await scrollPage.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2+35,{steps:4});
+  await scrollPage.mouse.up();
+  assert((await scrollPage.locator(".workspace").evaluate(pane => pane.scrollTop))>oldPosition);
+  await scrollPage.getByRole("switch",{name:"Modo escuro"}).click();
+  await scrollPage.locator(".workspace").hover({position:{x:15,y:120}});
+  await scrollPage.mouse.wheel(0,160);
+  await indicator.locator("xpath=self::*[@data-visible='true']").waitFor();
+  assert.equal(await indicator.locator("span").evaluate(thumb => getComputedStyle(thumb,"::after").backgroundColor),"rgb(244, 119, 69)");
+  await scrollPage.screenshot({path:"test-results/layout/app-shell-dark.png",animations:"disabled"});
+  await scrollPage.locator("#editorial").screenshot({style:".skip:not(:focus){visibility:hidden}",path:"test-results/layout/editorial-dark.png"});
+  await scrollPage.evaluate(() => document.querySelector(".workspace").scrollTo(0,0));
+  const list = scrollPage.locator("#scheduled-list");
+  assert.equal(await list.evaluate(element => getComputedStyle(element).scrollbarWidth),"none");
+  const widget = scrollPage.locator(".scheduled-widget");
+  assert.equal(await widget.locator(".scroll-indicator").count(),0);
+  const footer = widget.locator("footer");
+  const header = widget.locator("header");
+  const viewport = widget.locator(".scheduled-viewport");
+  await viewport.locator("xpath=self::*[@data-fade-top='false' and @data-fade-bottom='true']").waitFor();
+  for (const [format, color] of Object.entries({story:"#ffe5d7",reel:"#fbe2ee",carousel:"#fff0ce",feed:"#ddeeff"})) {
+    const cards = list.locator(`[data-publication-format="${format}"]`);
+    assert((await cards.count()) > 0, format);
+    assert((await cards.evaluateAll(nodes => nodes.map(node => getComputedStyle(node).getPropertyValue("--pastel").trim()))).every(value => value === color), format);
+  }
+  await widget.screenshot({path:"test-results/layout/posts-programados-dark.png"});
+  const before = [await header.boundingBox(),await footer.boundingBox(),await scrollPage.evaluate(() => document.querySelector(".workspace").scrollTop)];
+  await list.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await viewport.locator("xpath=self::*[@data-fade-top='true' and @data-fade-bottom='false']").waitFor();
+  assert(await list.evaluate(element => element.scrollTop>0 && Math.abs(element.scrollHeight-element.clientHeight-element.scrollTop)<=1));
+  assert.deepEqual([await header.boundingBox(),await footer.boundingBox(),await scrollPage.evaluate(() => document.querySelector(".workspace").scrollTop)],before);
+  const agenda = footer.getByRole("link", {name:"Ver agenda completa"});
+  assert.equal(await agenda.getAttribute("href"), "#agenda");
+  await scrollPage.setViewportSize({width:1366,height:420});
+  await scrollPage.locator(".side-nav").evaluate(nav => {nav.scrollTop = nav.scrollHeight});
+  assert(await scrollPage.locator(".side-nav").evaluate(nav => nav.scrollTop>0));
+  assert((await sidebarBounds()).footer<=420);
+  console.log("Rolagem do ContentViewport, navegação lateral e lista interna verificadas.");
 } finally {
   await browser.close();
 }
