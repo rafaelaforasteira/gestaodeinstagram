@@ -397,8 +397,8 @@ th{font-size:inherit}
 .publication-meta .publication-client{margin:0;min-width:0}
 .publication-network{display:flex;align-items:center;gap:4px;flex:none}
 .publication-client svg{width:14px;height:14px}
-.publication-metrics-list{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;width:100%;margin-top:auto;padding:6px 4px}
-.publication-metrics-list div{display:grid;grid-template-columns:14px max-content;justify-content:center;align-items:center;gap:4px}
+.publication-metrics-list{grid-template-columns:repeat(3,max-content);justify-content:space-evenly;gap:4px;width:100%;margin-top:auto;padding:6px 4px}
+.publication-metrics-list div{display:grid;grid-template-columns:14px minmax(0,1fr);align-items:center;gap:4px}
 .publication-metrics-list{background:var(--card)}
 .publication-metrics-list dt{position:relative;display:grid;place-items:center;min-width:14px;min-height:18px;border-radius:4px}
 .publication-metrics-list dt svg{margin:0}
