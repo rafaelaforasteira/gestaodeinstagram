@@ -6,3 +6,9 @@ Os WOFF2 variáveis vêm do pacote oficial [geist 1.9.2](https://www.npmjs.com/p
 ## Cores por formato de publicação
 
 Use `data-publication-format` para aplicar os tokens `--pastel` e `--accent` definidos em `dashboard.css`. Story usa pêssego (`#FFE5D7` e `#E57B49`), Reel usa rosa (`#FBE2EE` e `#D94C87`), Carrossel usa amarelo (`#FFF0CE` e `#D99C13`) e Feed estático usa azul (`#DDEEFF` e `#3989CA`). Formatos desconhecidos usam a superfície neutra e a cor de texto secundário. Derive a cor do formato, independentemente do status ou do identificador da publicação.
+
+## Raios dos controles
+
+Use o token `--radius-control` de 12 px para controles retangulares, seguindo o item ativo da sidebar. Aplique-o a botões compartilhados, ações de navegação e seletores segmentados, incluindo a trilha e o indicador ativo. Campos compactos podem usar a variante de 10 px. Cards e popovers usam seus próprios raios de superfície. Avatares, botões circulares, marcas sociais, badges e interruptores têm geometria própria.
+
+O botão Ver agenda completa usa `--brand-orange` com texto grafite em ambos os temas. Hover e pressionamento clareiam discretamente o laranja, e o foco de teclado usa o contorno compartilhado. O seletor segmentado usa os tokens de trilha e indicador do tema e mantém a transição deslizante, respeitando a preferência de movimento reduzido.

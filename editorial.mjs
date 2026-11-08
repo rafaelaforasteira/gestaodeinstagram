@@ -219,7 +219,7 @@ function renderFeatured(posts, accounts, icon) {
     const network = badges ? '<span class="publication-network">'+badges+'</span>' : "";
     return '<article class="editorial-post" data-place="'+position+'"><div class="publication-preview">'+publicationMedia(post.cover,icon,true)+
       rankingBadge(position,icon)+
-      publicationFormatTag(post.format,icon).outerHTML+'</div><div class="publication-summary"><h3>'+title+'</h3><div class="publication-meta"><p class="muted scheduled-meta-item publication-client">'+icon("building")+'<span title="'+escapeHtml(client)+'">'+escapeHtml(client)+'</span></p>'+network+'</div>'+
+      '<div class="publication-preview-meta">'+network+publicationFormatTag(post.format,icon).outerHTML+'</div></div><div class="publication-summary"><h3>'+title+'</h3><div class="publication-meta"><p class="muted scheduled-meta-item publication-client">'+icon("building")+'<span title="'+escapeHtml(client)+'">'+escapeHtml(client)+'</span></p></div>'+
       metricPanel(post,icon,position)+'</div></article>';
   }).join("")+"</div>";
 }
