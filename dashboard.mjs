@@ -281,7 +281,7 @@ function renderConsistency(data) {
 
 function renderEditorial(data) {
   renderConsistency(data);
-  renderIntelligence(data, {isDemo, today, snapshot:demoFollowerSnapshot, icon, formatDate});
+  renderIntelligence(data, {isDemo, today, icon, formatDate});
   const upcoming = data.allPosts.filter(({scheduled}) => scheduled > today).sort((a,b) => a.scheduled.localeCompare(b.scheduled));
   const failures = data.activity.filter(({status}) => status === "Falha");
   $("editorial-alert").hidden = !failures.length;
@@ -825,13 +825,8 @@ filterForm.addEventListener("submit", (event) => {
   filterTrigger.focus();
 });
 
-if (isDemo) {
-  $("mode-link").href=location.pathname;
-  $("mode-link").textContent="Ver sem dados de exemplo";
-  $("data-source").textContent="Dados fictícios · Referência de 06/11/2026 · Horários de Brasília";
-} else {
+if (!isDemo) {
   $("summary").textContent="Conecte uma fonte autorizada para acompanhar resultados e atividades.";
-  $("data-source").textContent="Nenhuma fonte autorizada configurada.";
 }
 theme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
 $("appearance").addEventListener("click", () => theme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));

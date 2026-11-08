@@ -149,3 +149,22 @@ export const demoFormatHistory = [
   {id:"demo-story-now",account:"aurora",date:demo.today,format:"Story",title:"Detalhes da coleção",cover:"aurora",views:4220,reach:2100},
   {id:"demo-story-before",account:"aurora",date:offsetDay(demo.today,-8),format:"Story",title:"Bastidores da coleção",cover:"aurora",views:3560,reach:1900},
 ].map(post => ({...post,status:"Publicado"}));
+
+export const demoBioBanners = [
+  ["aurora","Coleção Aurora","aurora","published",4280],
+  ["casa","Texturas naturais","texturas","published",3760],
+  ["aurora","Guia de presentes","aurora","published",2140],
+  ["casa","Casa em detalhes","texturas","paused",1430],
+  ["aurora","Novidades da semana","aurora","published",870],
+  ["casa","Próxima coleção","texturas","published",0],
+  ["forma","Conheça o estúdio","aurora","published",360],
+].map(([account,name,cover,state,clicks],index) => ({
+  id:"bio-"+index,account,name,cover,state,clicks,
+  startsAt:offsetDay(demo.today,index===5?2:-20)+"T08:00:00-03:00",
+}));
+
+export const demoBioClicks = demoBioBanners.flatMap(banner =>
+  [0,1,5,12,35].flatMap((days,index) =>
+    Array.from({length:Math.round(banner.clicks/(index+1))},(_,event) => ({
+      id:banner.id+"-"+days+"-"+event,banner:banner.id,date:offsetDay(demo.today,-days),valid:true,
+    }))));

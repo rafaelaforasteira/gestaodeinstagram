@@ -1,8 +1,7 @@
-import { demo, demoFeaturedNetworks, demoFeaturedPosts, demoFormatHistory, offsetDay } from "./demo-data.mjs";
-import { comparePublicationFormats, completeTotal, selectEditorialPeriods } from "./analytics.mjs";
+import { demo, demoBioBanners, demoBioClicks, demoFeaturedNetworks, demoFeaturedPosts, demoFormatHistory, offsetDay } from "./demo-data.mjs";
+import { comparePublicationFormats, selectEditorialPeriods, summarizeLinkBio } from "./analytics.mjs";
 
 const labels = {reel:"Reels", carousel:"Carrosséis", feed:"Feed", story:"Stories"};
-const interactions = {likes:"Curtidas", comments:"Comentários", saves:"Salvamentos", shares:"Compartilhamentos"};
 const metrics = [
   ["reach","Alcance","users-round"], ["views","Visualizações","eye"], ["likes","Curtidas","heart"],
   ["comments","Comentários","message-circle"], ["saves","Salvamentos","bookmark"], ["shares","Compartilhamentos","share-2"],
@@ -24,16 +23,6 @@ export function rankPosts(posts) {
       seen.add(key);
       return true;
     }).slice(0,3);
-}
-
-export function summarizePosts(posts, key) {
-  const measured = posts.filter(post => key === "rate"
-    ? Number.isFinite(post.interactions) && Number.isFinite(post.reach) && post.reach > 0
-    : Number.isFinite(post[key]));
-  if (!measured.length) return null;
-  return key === "rate"
-    ? measured.reduce((total,post) => total + post.interactions,0) / measured.reduce((total,post) => total + post.reach,0) * 100
-    : measured.reduce((total,post) => total + post[key],0) / measured.length;
 }
 
 function metricSelector(chart) {
@@ -63,19 +52,14 @@ function metricSelector(chart) {
   return viewport;
 }
 
-export function renderIntelligence(data, {isDemo,today,snapshot,icon,formatDate}) {
+export function renderIntelligence(data, {isDemo,today,icon,formatDate}) {
   // This static preview has no authorized Insights adapter. All populated values are fixtures.
   const accountIds = new Set(data.accounts.map(account => account.id));
+  renderLinkBio(data,accountIds,isDemo,icon,formatDate);
   const story = {id:"story-fixture",account:"aurora",status:"Publicado",title:"Detalhes da coleção",format:"Story",date:offsetDay(today,-1),views:2320,reach:2040};
-  const posts = isDemo ? data.activity.filter(post => post.status === "Publicado") : [];
-  if (isDemo && accountIds.has(story.account) && story.date >= data.start && story.date <= data.end) posts.push(story);
-  const mounted = ["featured","formats","engagement","audience","profile-actions"];
   if (!data.accounts.length) {
-    const messages = ["Sem conteúdos classificados neste período.","Sem publicações para comparar por formato.",
-      "Interações indisponíveis para este período.","Não há histórico suficiente para calcular a evolução.",
-      "Essas informações não estão disponíveis para as contas selecionadas."];
-    mounted.forEach((id,index) => { root(id).innerHTML = empty(messages[index]); });
-    root("editorial-source").textContent = "Nenhuma fonte de Instagram Insights conectada.";
+    root("featured").innerHTML = empty("Sem conteúdos classificados neste período.");
+    root("formats").innerHTML = empty("Sem publicações para comparar por formato.");
     return;
   }
 
@@ -103,14 +87,10 @@ export function renderIntelligence(data, {isDemo,today,snapshot,icon,formatDate}
           ["previous","current"].map(period => '<div class="format-series" data-series="'+period+'" tabindex="0">'+
             '<strong></strong><span class="format-tooltip" aria-hidden="true"></span></div>').join("")+
           '</div><h3>'+labels[format]+'</h3></section>').join("")+
-        '</div></div><p class="editorial-note muted format-method"></p>';
+        '</div></div>';
     }
     panel.querySelector('.format-legend [data-series="current"]').textContent = "Atual";
     panel.querySelector('.format-legend [data-series="previous"]').textContent = "Anterior";
-    const method = panel.querySelector(".format-method");
-    method.hidden = !historical;
-    method.textContent = historical ? "Até "+formatDate(data.end)+" vs. até "+formatDate(previousEnd)+
-      ". Os conjuntos se sobrepõem e usam métricas acumuladas da mesma base." : "";
     panel.querySelector(".format-axis").innerHTML = [1,.75,.5,.25,0].map(fraction =>
       '<span>'+formatFeaturedMetric(max*fraction)+'</span>').join("");
     for (const {format,now,before,change} of formats) {
@@ -125,7 +105,8 @@ export function renderIntelligence(data, {isDemo,today,snapshot,icon,formatDate}
         const periodLabel = period === "current" ? "Atual" : "Anterior";
         const result = value === null ? (total ? "Métrica indisponível" : "Sem publicações") : formatValue(value);
         const detail = [labels[format],periodLabel+" "+dates,comparison[key]+": "+result,
-          measured+" de "+total+" publicações",measured===1 ? "Amostra pequena" : ""].filter(Boolean).join(" · ");
+          measured+" de "+total+" publicações",measured===1 ? "Amostra pequena" : "",
+          historical ? "Conjuntos sobrepostos, com métricas acumuladas da mesma base" : ""].filter(Boolean).join(" · ");
         segment.style.setProperty("--segment-height",((value ?? 0)/max*100)+"%");
         segment.dataset.empty = String(value === null || value === 0);
         segment.setAttribute("aria-label",detail);
@@ -138,44 +119,6 @@ export function renderIntelligence(data, {isDemo,today,snapshot,icon,formatDate}
   control.onchange = event => renderComparison(event.target.value);
   renderComparison(control.querySelector("input:checked").value);
 
-  const measured = posts.filter(post => post.format !== "Story");
-  const mix = Object.entries(interactions).map(([key,label]) => {
-    const values = measured.map(post => post[key]).filter(Number.isFinite);
-    return {label,value:values.length ? values.reduce((a,b) => a+b,0) : null};
-  });
-  const maxMix = Math.max(1,...mix.map(item => item.value ?? 0));
-  const rate = summarizePosts(measured,"rate");
-  root("engagement").innerHTML = '<div class="editorial-well editorial-lines">'+mix.map(({label,value}) =>
-    '<div><span>'+label+'</span><strong>'+formatValue(value)+'</strong><div class="engagement-track" aria-hidden="true"><i style="--bar:'+((value ?? 0)/maxMix*100)+'%"></i></div></div>').join("")+
-    '</div><p class="editorial-note">Taxa de interação <strong>'+formatValue(rate,"%")+'</strong><br><span class="muted">Interações ÷ soma dos alcances por publicação.</span></p>';
-
-  const end = data.end > today ? today : data.end;
-  const countAt = day => completeTotal(data.accounts, account => snapshot(account,day));
-  const days = Math.round((Date.parse(end)-Date.parse(data.start))/86400000)+1;
-  const series = days > 0 ? Array.from({length:days+1},(_,index) => {
-    const date = offsetDay(data.start,index-1);
-    return {date,value:countAt(date)};
-  }) : [];
-  const net = series.length > 1 && series.every(({value}) => Number.isFinite(value))
-    ? series.at(-1).value-series[0].value : null;
-  root("audience").innerHTML = net === null ? empty("Não há histórico suficiente para calcular a evolução.") : audienceChart(series,net,formatDate);
-
-  root("profile-actions").innerHTML = data.current.length ? '<dl class="editorial-well profile-metrics"><div><dt>Visitas ao perfil</dt><dd>'+formatValue(data.current.reduce((total,row) => total + Math.round(row.reach * .035),0))+'</dd></div><div><dt>Toques em links</dt><dd>Indisponível</dd></div></dl><p class="muted editorial-note">Visitas simuladas apenas na demonstração.</p>' : empty("Essas informações não estão disponíveis para as contas selecionadas.");
-  root("editorial-source").textContent = "Dados fictícios de demonstração · "+formatDate(data.start)+" a "+formatDate(data.end)+
-    (data.end >= today && data.start <= today ? " · Hoje é um período parcial." : "");
-}
-
-function audienceChart(series, net, formatDate) {
-  const values = series.map(item => item.value);
-  const min = Math.min(...values), span = Math.max(1,Math.max(...values)-min);
-  const points = values.map((value,index) => [5+index/(values.length-1)*290,85-(value-min)/span*72]);
-  return '<p class="audience-total"><strong>'+(net>0?"+":"")+formatValue(net)+'</strong> seguidores líquidos</p>'+
-    '<div class="editorial-well"><svg class="audience-chart" viewBox="0 0 300 94" preserveAspectRatio="none" aria-hidden="true"><path d="M5 85H295M5 49H295M5 13H295"/>'+
-    '<polyline points="'+points.map(point => point.join(",")).join(" ")+'"/></svg>'+
-    '<div class="audience-labels"><span>'+formatDate(series[0].date)+' · '+formatValue(values[0])+'</span><span>'+
-    formatDate(series.at(-1).date)+' · '+formatValue(values.at(-1))+'</span></div></div>'+
-    '<details class="editorial-note"><summary>Valores por data</summary><ul>'+series.map(({date,value}) =>
-      '<li>'+formatDate(date)+' · '+formatValue(value)+' seguidores</li>').join("")+'</ul></details>';
 }
 
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, character =>
@@ -273,10 +216,51 @@ function renderFeatured(posts, accounts, icon) {
     const platforms = demoFeaturedNetworks[post.id] ?? [platform].filter(name => Object.hasOwn(scheduledPlatforms,name));
     const badges = publicationNetworkBadges(platforms.map(platform => ({platform})),icon)
       .map(badge => badge.outerHTML).join("");
-    const network = badges ? '<p class="publication-network">'+badges+'</p>' : "";
+    const network = badges ? '<span class="publication-network">'+badges+'</span>' : "";
     return '<article class="editorial-post" data-place="'+position+'"><div class="publication-preview">'+publicationMedia(post.cover,icon,true)+
       rankingBadge(position,icon)+
-      publicationFormatTag(post.format,icon).outerHTML+'</div><div class="publication-summary"><h3>'+title+'</h3><p class="muted scheduled-meta-item publication-client">'+icon("building")+'<span>'+escapeHtml(client)+'</span></p>'+network+
+      publicationFormatTag(post.format,icon).outerHTML+'</div><div class="publication-summary"><h3>'+title+'</h3><div class="publication-meta"><p class="muted scheduled-meta-item publication-client">'+icon("building")+'<span title="'+escapeHtml(client)+'">'+escapeHtml(client)+'</span></p>'+network+'</div>'+
       metricPanel(post,icon,position)+'</div></article>';
   }).join("")+"</div>";
+}
+
+function renderLinkBio(data, accounts, isDemo, icon, formatDate) {
+  const overview = root("bio-overview");
+  const ranking = root("bio-ranking");
+  const result = isDemo ? summarizeLinkBio(demoBioBanners,demoBioClicks,accounts,data.start,data.end,Date.parse(demo.now)) : null;
+  const stats = [
+    ["Cliques","mouse-pointer-click",result?.clicks,result?.change],
+    ["No ar","radio",result?.statuses.live],
+    ["Programados","calendar-clock",result?.statuses.scheduled],
+    ["Inativos","circle-pause",result?.statuses.inactive],
+  ];
+  overview.innerHTML = '<dl class="bio-stats">'+stats.map(([label,symbol,value,change],index) => {
+    const available = Number.isFinite(change);
+    const tone = !available || change===0 ? " neutral" : change<0 ? " down" : "";
+    const badge = available ? (change>0?"+":"")+formatValue(change,"%") : "—";
+    const tooltipId = "bio-comparison-"+index;
+    const detail = index===0 ? "Sem base anterior comparável." : "Comparação histórica ainda indisponível.";
+    const comparison = '<span class="trend'+tone+'"'+
+      (available ? "" : ' tabindex="0" aria-describedby="'+tooltipId+'"')+'>'+badge+
+      (available ? "" : '<span class="format-tooltip" role="tooltip" id="'+tooltipId+'">'+detail+'</span>')+'</span>';
+    return '<div class="bio-stat"><dt>'+label+'<span class="bio-stat-icon">'+icon(symbol)+'</span></dt><dd class="value">'+
+      formatFeaturedMetric(value)+'</dd><dd class="kpi-comparison bio-comparison">'+comparison+'<span>vs. período anterior</span></dd></div>';
+  }).join("")+'</dl><p class="muted bio-note">'+
+    (isDemo ? "Demonstração · Status em "+formatDate(demo.today) : "Dados de Link Bio indisponíveis.")+'</p>';
+  if (!result?.ranking.length) {
+    ranking.innerHTML = empty(isDemo ? "Nenhum clique registrado no período para a seleção." : "Ranking indisponível.");
+    return;
+  }
+  const statuses = {live:"No ar",scheduled:"Programado",inactive:"Inativo"};
+  ranking.innerHTML = '<div class="table-wrap bio-table"><table aria-label="Banners mais clicados"><thead><tr>'+
+    ["Posição","Banner","Cliente","Cliques","Status atual"].map(label=>'<th scope="col">'+label+'</th>').join("")+
+    '</tr></thead><tbody>'+result.ranking.map((banner,index) => {
+      const account = data.accounts.find(item => item.id === banner.account);
+      const client = demo.clients.find(item => item.id === account?.client)?.name ?? "Cliente indisponível";
+      return '<tr><td data-label="Posição">'+(index+1)+'º</td><td data-label="Banner"><span class="bio-banner">'+
+        publicationMedia(banner.cover,icon,true)+escapeHtml(banner.name)+'</span></td><td data-label="Cliente">'+escapeHtml(client)+
+        '</td><td data-label="Cliques"><strong title="'+formatValue(banner.clicks)+'" aria-label="'+formatValue(banner.clicks)+' cliques">'+
+        formatFeaturedMetric(banner.clicks)+'</strong></td><td data-label="Status atual"><span class="bio-status" data-status="'+
+        (banner.status ?? "")+'">'+(statuses[banner.status] ?? "Indisponível")+'</span></td></tr>';
+    }).join("")+'</tbody></table></div>';
 }

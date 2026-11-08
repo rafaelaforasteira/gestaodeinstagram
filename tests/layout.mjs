@@ -200,7 +200,9 @@ try {
   assert(await scheduled.getByText("Nenhuma conta do Instagram conectada.").isVisible());
   assert.deepEqual(await page.locator("#metrics .value").allTextContents(), ["—","—","—","—"]);
   assert.equal(await page.locator("#consistency button.heat-cell").count(), 0);
-  assert.equal(await page.locator("#editorial .empty").count(), 5);
+  assert.equal(await page.locator(".editorial-primary .empty").count(), 2);
+  assert.deepEqual(await page.locator(".bio-stat .value").allTextContents(), ["—","—","—","—"]);
+  assert.equal(await page.locator("#bio-ranking .empty").count(), 1);
   await page.locator("#editorial").screenshot({style:".skip:not(:focus){visibility:hidden}",path:"test-results/layout/editorial-empty.png"});
   console.log("Filtros, foco no gráfico, busca, diálogo e navegação verificados.");
 

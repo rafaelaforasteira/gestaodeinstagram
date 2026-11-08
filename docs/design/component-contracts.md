@@ -14,3 +14,7 @@ A prévia estática não possui sincronização Meta Insights, cache remoto ou h
 
 
 Os dois widgets editoriais selecionam publicações confirmadas pelo mesmo escopo. Uma data única inclui o histórico até a data, e o gráfico compara com o conjunto até a véspera usando os valores acumulados da mesma base. Intervalos de vários dias usam janelas consecutivas de mesma duração. As duas séries usam uma escala comum, com média por publicação medida e contagem de cobertura. Zero observado entra na média. A variação exige média anterior positiva. Hoje é marcado como parcial. As publicações demonstrativas adicionais alimentam os dois widgets editoriais.
+
+Link Bio na Visão Geral usa dois widgets com proporção 40/60 e empilhamento em espaços estreitos. Cliques são eventos válidos com identificador único, contados no intervalo selecionado. A variação compara com a janela anterior de igual duração. O ranking usa os mesmos eventos e mostra até cinco banners. Os três status retratam a situação na data de referência. Publicações em vigor estão no ar, publicações com início futuro estão programadas e banners pausados, arquivados, desativados ou expirados estão inativos. Rascunhos sem programação ficam fora.
+
+As amostras de Link Bio usam vínculos explícitos com contas e clientes do workspace. O checkout ainda não possui armazenamento de banners, ingestão de cliques ou uma fonte de produção para esta seção. Fora da demonstração, os indicadores e o ranking mostram indisponibilidade.

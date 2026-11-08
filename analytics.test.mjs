@@ -1,5 +1,5 @@
 import test from "node:test";
-import { rankPosts, summarizePosts } from "./editorial.mjs";
+import { rankPosts } from "./editorial.mjs";
 import assert from "node:assert/strict";
 import { engagement, selectPeriods, sum } from "./analytics.mjs";
 import { demo, samples, offsetDay } from "./demo-data.mjs";
@@ -80,14 +80,6 @@ test("ranking por alcance preserva zero e exclui pendentes, métricas ausentes e
   assert.deepEqual(rankPosts(rows).map(post => post.id), [1,2]);
 });
 
-test("comparação usa valores disponíveis e taxa usa pares com alcance positivo", () => {
-  const posts = [{views:20,reach:100,interactions:10}, {views:0,reach:300,interactions:90},
-    {views:null,reach:0,interactions:100}, {reach:700,interactions:null}];
-  assert.equal(summarizePosts(posts,"views"), 10);
-  assert.equal(summarizePosts(posts,"rate"), 25);
-  assert.equal(summarizePosts(posts.slice(2),"rate"), null);
-});
-
 test("comparação por formato usa janelas equivalentes e distingue zero de ausência", async () => {
   const {comparePublicationFormats} = await import("./analytics.mjs");
   const rows = [
@@ -119,4 +111,27 @@ test("métricas em destaque abreviam somente a apresentação em pt-BR", async (
   const {formatFeaturedMetric} = await import("./editorial.mjs");
   const examples = [[0,"0"],[18,"18"],[799,"799"],[11420,"11,42K"],[145600,"145,6K"],[1250000,"1,25M"],[1e9,"1B"],[null,"—"]];
   for (const [value,expected] of examples) assert.equal(formatFeaturedMetric(value),expected);
+});
+
+test("Link Bio usa o intervalo, deduplica eventos e separa status atuais", async () => {
+  const {summarizeLinkBio} = await import("./analytics.mjs");
+  const banners = [
+    {id:"a",account:"x",name:"A",state:"published",startsAt:"2026-11-01"},
+    {id:"b",account:"x",name:"B",state:"published",startsAt:"2026-11-08"},
+    {id:"c",account:"x",name:"C",state:"paused"},
+    {id:"d",account:"y",name:"D",state:"published",startsAt:"2026-11-01"},
+  ];
+  const events = [
+    {id:"1",banner:"a",date:"2026-11-06",valid:true},
+    {id:"1",banner:"a",date:"2026-11-06",valid:true},
+    {id:"2",banner:"c",date:"2026-11-06",valid:true},
+    {id:"3",banner:"a",date:"2026-11-05",valid:true},
+    {id:"4",banner:"d",date:"2026-11-06",valid:true},
+    {id:"5",banner:"a",date:"2026-11-06",valid:false},
+  ];
+  const data = summarizeLinkBio(banners,events,new Set(["x"]),"2026-11-06","2026-11-06",Date.parse("2026-11-06"));
+  assert.equal(data.clicks,2);
+  assert.equal(data.change,100);
+  assert.deepEqual(data.statuses,{live:1,scheduled:1,inactive:1});
+  assert.deepEqual(data.ranking.map(item=>item.id),["a","c"]);
 });
