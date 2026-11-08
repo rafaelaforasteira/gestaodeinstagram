@@ -30,7 +30,7 @@ try {
   assert.deepEqual(await cards.locator(".publication-network").evaluateAll(groups => groups.map(group => group.children.length)),[3,2,3]);
   const reachIcon = cards.first().locator(".publication-metrics dt").first();
   await reachIcon.focus();
-  assert(await reachIcon.getByRole("tooltip",{name:"Alcance"}).isVisible());
+  assert(await reachIcon.getByRole("tooltip",{name:"Alcance · 11.420"}).isVisible());
   await cards.first().locator(".publication-preview").click();
   assert.equal(await editorialPage.locator("dialog[open]").count(),0);
   await mkdir("test-results/layout", {recursive:true});

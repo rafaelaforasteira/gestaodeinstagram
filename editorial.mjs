@@ -160,13 +160,23 @@ const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, character =>
   ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[character]);
 const publicationTitle = post => post.title || post.format + " sem título";
 
+const featuredNumber = new Intl.NumberFormat("pt-BR",{maximumFractionDigits:2});
+
+export function formatFeaturedMetric(value) {
+  if (!Number.isFinite(value)) return "—";
+  for (const [threshold,suffix] of [[1e9,"B"],[1e6,"M"],[1e3,"K"]]) {
+    if (Math.abs(value) >= threshold) return featuredNumber.format(value/threshold)+suffix;
+  }
+  return featuredNumber.format(value);
+}
+
 function metricPanel(post, icon, position) {
   return '<dl class="publication-metrics publication-metrics-list">' + metrics.map(([key,label,symbol]) => {
     const value = post[key];
     const id = "featured-metric-"+position+"-"+key;
     return '<div><dt tabindex="0" aria-describedby="'+id+'">'+icon(symbol)+'<span class="sr-only">'+label+'</span>'+
-      '<span class="format-tooltip" id="'+id+'" role="tooltip">'+label+(Number.isFinite(value) ? "" : " · indisponível")+
-      '</span></dt><dd>'+(Number.isFinite(value) ? formatValue(value) : "—")+'</dd></div>';
+      '<span class="format-tooltip" id="'+id+'" role="tooltip">'+label+" · "+formatValue(value)+
+      '</span></dt><dd>'+formatFeaturedMetric(value)+'</dd></div>';
   }).join("") + '</dl>';
 }
 

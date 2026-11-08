@@ -109,3 +109,9 @@ test("comparação por formato usa janelas equivalentes e distingue zero de aus�
     assert.equal(window.previousEnd,offsetDay(start,-1));
   }
 });
+
+test("métricas em destaque abreviam somente a apresentação em pt-BR", async () => {
+  const {formatFeaturedMetric} = await import("./editorial.mjs");
+  const examples = [[0,"0"],[18,"18"],[799,"799"],[11420,"11,42K"],[145600,"145,6K"],[1250000,"1,25M"],[1e9,"1B"],[null,"—"]];
+  for (const [value,expected] of examples) assert.equal(formatFeaturedMetric(value),expected);
+});
