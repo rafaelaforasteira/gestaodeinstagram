@@ -10,3 +10,4 @@
 
 - Na inteligência editorial, respeite o escopo global de cliente, conta e período. Preserve a distinção entre zero observado, métrica indisponível e fixture de demonstração. Consulte o contrato em docs/design/component-contracts.md.
 - Consulte [os tokens visuais](docs/design/tokens.md) ao criar ou ajustar controles, estados e superfícies.
+- Todo widget informativo deve seguir o [contrato de ajuda contextual](docs/design/component-contracts.md#ajuda-contextual-dos-widgets) e a [guia oficial](https://docs.google.com/document/d/1q9ySzYvNYcAoEiqcuOkW96SIwdAcrW4hQEAKEd45v70/edit?tab=t.89m0nghs2990).

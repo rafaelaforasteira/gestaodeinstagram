@@ -12,6 +12,67 @@ const resolutions = [
 
 const browser = await chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
 try {
+  const helpPage = await browser.newPage({viewport:{width:1366,height:768}});
+  await mkdir("test-results/layout",{recursive:true});
+  for (const [width,height] of [[1366,768],[1440,900],[1920,1080],[2560,1440],[3440,1440],[1024,768],[768,1024],[390,844]]) {
+    await helpPage.setViewportSize({width,height});
+    await helpPage.goto(url.href);
+    if (width === 1920) {
+      await helpPage.getByRole("button",{name:"Expandir menu"}).click();
+      await helpPage.getByRole("switch",{name:"Modo escuro"}).click();
+    }
+    const buttons = helpPage.locator(".widget-help:visible");
+    const expected = width === 1366 ? 10 : 1;
+    assert.equal(await helpPage.locator(".widget-help").count(),13);
+    const texts = new Set();
+    for (let i=0;i<expected;i++) {
+      const button = buttons.nth(i);
+      await button.scrollIntoViewIfNeeded();
+      await button.hover();
+      const panel = helpPage.locator(".widget-help-panel:popover-open");
+      await panel.waitFor();
+      const box = await panel.boundingBox();
+      assert.ok(box.x >= 0 && box.y >= 0 && box.x+box.width <= width && box.y+box.height <= height);
+      const copy = await panel.textContent();
+      assert.match(copy,/Dados de demonstração/);
+      texts.add(copy);
+      if (width === 1366 || width === 1920) {
+        await helpPage.screenshot({path:`test-results/layout/widget-help-${width}-${i}.png`});
+      }
+      await helpPage.keyboard.press("Escape");
+      assert.equal(await button.getAttribute("aria-expanded"),"false");
+    }
+    assert.equal(texts.size,expected);
+    assert.equal(await helpPage.evaluate(() => document.documentElement.scrollWidth),width);
+  }
+  await helpPage.goto(new URL("#activities",url).href);
+  const activityHelp = helpPage.getByRole("button",{name:"Sobre Atividades recentes"});
+  await activityHelp.focus();
+  await helpPage.keyboard.press("Enter");
+  assert.equal(await activityHelp.getAttribute("aria-expanded"),"true");
+  await helpPage.keyboard.press("Escape");
+  assert.equal(await activityHelp.getAttribute("aria-expanded"),"false");
+  assert.equal(await activityHelp.evaluate(el => el === document.activeElement),true);
+  for (const [route,title] of [["agenda","Próximas publicações"],["attention","Central de atenção"]]) {
+    await helpPage.goto(new URL("#"+route,url).href);
+    const button = helpPage.getByRole("button",{name:"Sobre "+title});
+    await button.focus();
+    await helpPage.keyboard.press("Space");
+    assert.equal(await button.getAttribute("aria-expanded"),"true");
+  }
+  await helpPage.close();
+  const touchPage = await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+  await touchPage.goto(url.href);
+  const touchHelp = touchPage.getByRole("button",{name:"Sobre Alcance"});
+  await touchHelp.tap();
+  assert.equal(await touchHelp.getAttribute("aria-expanded"),"true");
+  await touchPage.screenshot({path:"test-results/layout/widget-help-touch.png"});
+  await touchHelp.tap();
+  assert.equal(await touchHelp.getAttribute("aria-expanded"),"false");
+  await touchHelp.tap();
+  await touchPage.locator("#greeting").tap();
+  assert.equal(await touchHelp.getAttribute("aria-expanded"),"false");
+  await touchPage.close();
   const editorialPage = await browser.newPage({viewport:{width:1366,height:768}});
   await editorialPage.goto(new URL("?demo=1&period=7",url).href);
   assert.equal(await editorialPage.locator("#featured .editorial-post").count(),3);
@@ -45,10 +106,12 @@ try {
     document.fonts.check('600 26px "Geist Sans"')));
   assert.equal(await page.locator("#metrics .metric").count(), 4);
   assert.deepEqual(await page.locator("#metrics h3").allTextContents(), ["Alcance","Views","Engajados","Seguidores"]);
-  assert.equal(await page.locator("#kpi-user-round-plus + .kpi-help").count(), 1);
+  assert.equal(await page.locator("#kpi-user-round-plus + .widget-help").count(), 1);
   assert.equal(await page.locator("#metrics .metric").last().locator(".value").innerText(), "12.320");
   await page.getByRole("button", { name:"Sobre Engajados" }).focus();
+  await page.keyboard.press("Enter");
   assert(await page.getByRole("tooltip").isVisible());
+  await page.keyboard.press("Escape");
   assert.equal(await page.locator("#featured img").count(), 3);
   const ranking = page.locator("#featured .editorial-post");
   assert.match(await ranking.first().innerText(), /Coleção Aurora/);

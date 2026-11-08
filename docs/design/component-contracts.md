@@ -1,5 +1,11 @@
 # Tipografia dos componentes
 
+## Ajuda contextual dos widgets
+
+Consulte a [guia oficial de ajuda contextual](https://docs.google.com/document/d/1q9ySzYvNYcAoEiqcuOkW96SIwdAcrW4hQEAKEd45v70/edit?tab=t.89m0nghs2990). Registre cada widget informativo em `widget-help.mjs` pelo ID do título. Use um único botão circular no canto superior direito e mantenha os detalhes de pontos, séries e células nos seus próprios controles.
+
+Revise a descrição sempre que mudarem a métrica, a origem, o filtro, o período, o status ou a agregação. Valide texto, foco, Escape, toque, contraste nos dois temas e limites da viewport antes de concluir um widget.
+
 Controles, diálogos, gráficos, tabelas, estados e tooltips herdam Geist Sans. Métricas, valores e datas usam algarismos tabulares. Os elementos `code`, `kbd`, `pre` e `samp` usam Geist Mono. Componentes futuros devem usar os mesmos tokens em vez de declarar outra família.
 
 No gráfico, larguras menores alternam rótulos de data para preservar a legibilidade. Os valores completos continuam acessíveis nos botões das séries. Valide a fonte computada e as quebras de linha em HD e celular ao alterar os tokens.

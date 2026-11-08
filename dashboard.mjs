@@ -1,3 +1,4 @@
+import { renderWidgetHelp } from "./widget-help.mjs";
 import { destinationName, publicationNetworkBadges, publicationFormatIcons, publicationFormatTag, renderIntelligence } from "./editorial.mjs";
 import { demo, demoEditorialHistory, demoFollowerSnapshot, demoPeriodInsights, demoSchedules, offsetDay, samples, posts } from "./demo-data.mjs";
 import { accountsInScope, completeTotal, percentChange, selectPeriods, selectActiveSchedules, sum } from "./analytics.mjs";
@@ -74,8 +75,8 @@ function getData(start, end) {
 
 const valueText = (value, suffix = "") => value === null ? "—" : (suffix ? decimal.format(value) : number.format(value)) + suffix;
 
-/** @param {{title:string,symbol:string,description:string,value:number|null,change:number|null,net?:boolean,note?:string,status?:string}} kpi */
-function metric({title,symbol,description,value,change,net=false,note="",status="ready"}) {
+/** @param {{title:string,symbol:string,value:number|null,change:number|null,net?:boolean,status?:string}} kpi */
+function metric({title,symbol,value,change,net=false,status="ready"}) {
   const id = "kpi-" + symbol;
   const signed = change > 0 ? "+" : change < 0 ? "−" : "";
   const label = change === null ? "Sem comparação disponível" :
@@ -86,9 +87,7 @@ function metric({title,symbol,description,value,change,net=false,note="",status=
     (change === null ? "" : '<span>' + (net ? "no período selecionado" : "vs. período anterior") + '</span>');
   return '<article class="card metric" aria-labelledby="' + id + '" aria-busy="' + (status === "loading") +
     '"><div class="kpi-heading">' + icon(symbol) + '<h3 id="' + id + '">' + title +
-    '</h3><span class="kpi-help"><button type="button" aria-label="Sobre ' + title +
-    '" aria-describedby="' + id + '-help">?</button><span role="tooltip" id="' + id + '-help">' + description + (note ? " " + note : "") +
-    '</span></span></div><p class="value">' + (status === "loading" ? '<span class="kpi-skeleton" aria-label="Carregando"></span>' :
+    '</h3></div><p class="value">' + (status === "loading" ? '<span class="kpi-skeleton" aria-label="Carregando"></span>' :
     valueText(value)) + '</p><div class="kpi-comparison muted">' + (status === "loading" ? "Carregando dados…" : comparison) +
     '</div></article>';
 }
@@ -106,17 +105,13 @@ function renderKpis({accounts,start,end,previousStart,current,previous,length}) 
   const reach = period("reach",start,end), engaged = period("accountsEngaged",start,end);
   const currentViews = views(current), followers = snapshot(today);
   const baseline = snapshot(previousEnd), closing = snapshot(end);
-  const overlap = accounts.length > 1 ? "Soma por perfil; pode incluir as mesmas contas." : "";
   const status = accounts.length ? "ready" : "disconnected";
   $("metrics").innerHTML = [
-    {title:"Alcance",symbol:"users-round",value:reach,change:percentChange(reach,period("reach",previousStart,previousEnd)),
-      note:overlap,description:"Quantidade de contas alcançadas pelos conteúdos no período selecionado."},
-    {title:"Views",symbol:"eye",value:currentViews,change:percentChange(currentViews,views(previous)),
-      description:"Quantidade de visualizações registradas no período, incluindo visualizações repetidas quando aplicável."},
-    {title:"Engajados",symbol:"heart",value:engaged,change:percentChange(engaged,period("accountsEngaged",previousStart,previousEnd)),
-      note:overlap,description:"Quantidade de contas que realizaram interações com o conteúdo no período, conforme a definição da API."},
+    {title:"Alcance",symbol:"users-round",value:reach,change:percentChange(reach,period("reach",previousStart,previousEnd))},
+    {title:"Views",symbol:"eye",value:currentViews,change:percentChange(currentViews,views(previous))},
+    {title:"Engajados",symbol:"heart",value:engaged,change:percentChange(engaged,period("accountsEngaged",previousStart,previousEnd))},
     {title:"Seguidores",symbol:"user-round-plus",value:followers,change:baseline === null || closing === null ? null : closing - baseline,
-      net:true,note:accounts.length > 1 ? "Total atual dos perfis selecionados." : "",description:"Quantidade atual de seguidores e variação líquida no período, quando houver dados históricos suficientes."},
+      net:true},
   ].map((kpi) => metric({...kpi,status})).join("");
 }
 
@@ -459,6 +454,7 @@ function refresh() {
   renderScheduledPosts(data);
   renderEditorial(data);
   renderTable();
+  renderWidgetHelp(isDemo);
   const {client,account,period} = appliedFilters;
   const count = ["client","account","period"].filter(key => appliedFilters[key] !== defaultFilters[key]).length;
   const badge = $("filter-count");
