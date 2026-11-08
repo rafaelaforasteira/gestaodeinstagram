@@ -18,7 +18,7 @@ try {
   assert.equal(await editorialPage.locator("#formats .format-comparison").count(),4);
   assert.equal(await editorialPage.locator("#formats .format-comparison [data-series=current] strong").filter({hasText:"—"}).count(),0);
   await editorialPage.getByRole("radio",{name:"Curtidas",exact:true}).check();
-  assert.match(await editorialPage.locator('#formats [data-format="story"] [data-series=current] strong').innerText(), /—/);
+  assert.match(await editorialPage.locator('#formats [data-format="story"] [data-series="current"]').getAttribute("aria-label"), /Métrica indisponível/);
   await editorialPage.goto(new URL("?demo=1&period=7&account=aurora",url).href);
   assert.equal(await editorialPage.locator("#featured").getByText("Casa Nova",{exact:false}).count(),0);
   await editorialPage.goto(new URL("?demo=1&period=7",url).href);

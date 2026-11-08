@@ -1,5 +1,5 @@
 import { demo, demoFeaturedNetworks, demoFeaturedPosts, demoFormatHistory, offsetDay } from "./demo-data.mjs";
-import { comparePublicationFormats, completeTotal } from "./analytics.mjs";
+import { comparePublicationFormats, completeTotal, selectEditorialPeriods } from "./analytics.mjs";
 
 const labels = {reel:"Reels", carousel:"Carrosséis", feed:"Feed", story:"Stories"};
 const interactions = {likes:"Curtidas", comments:"Comentários", saves:"Salvamentos", shares:"Compartilhamentos"};
@@ -79,38 +79,60 @@ export function renderIntelligence(data, {isDemo,today,snapshot,icon,formatDate}
     return;
   }
 
-  const featuredPosts = isDemo ? demoFeaturedPosts.filter(post => post.date >= data.start && post.date <= data.end) : [];
-  renderFeatured(featuredPosts,data.accounts,icon);
-
+  const history = isDemo ? [...demoFeaturedPosts,...demoFormatHistory,story] : [];
+  const scope = selectEditorialPeriods(history,accountIds,data.start,data.end);
   const chart = root("formats");
-  const history = isDemo ? [...data.allPosts,...demoFormatHistory,story] : [];
+  const featuredNote = root("featured-title").nextElementSibling;
+  featuredNote.textContent = "Top 3 por alcance · "+(scope.historical ? "Histórico até "+formatDate(data.end) : "Publicações do período")+" · Métricas acumuladas.";
+  renderFeatured(scope.current,data.accounts,icon);
   function renderComparison(key) {
-    const {formats,previousStart,previousEnd} = comparePublicationFormats(history,accountIds,data.start,data.end,key);
-    const max = Math.max(1,...formats.flatMap(({now,before}) => [now.value ?? 0,before.value ?? 0]));
-    const rangeLabel = (start,end) => formatDate(start)+" a "+formatDate(end);
-    const current = rangeLabel(data.start,data.end), prior = rangeLabel(previousStart,previousEnd);
+    const {formats,previousStart,previousEnd,historical} = comparePublicationFormats(history,accountIds,data.start,data.end,key);
+    const peak = Math.max(1,...formats.map(({now,before}) => (now.value ?? 0)+(before.value ?? 0)));
+    const step = Math.pow(10,Math.floor(Math.log10(peak/4)));
+    const max = Math.ceil(peak/(4*step))*4*step;
+    const current = historical ? "até "+formatDate(data.end) : formatDate(data.start)+" a "+formatDate(data.end);
+    const prior = historical ? "até "+formatDate(previousEnd) : formatDate(previousStart)+" a "+formatDate(previousEnd);
     const partial = data.start <= today && data.end >= today ? " · inclui hoje, parcial" : "";
-    function bar(sample, period, dates) {
-      const {value,total,measured} = sample;
-      const label = period === "current" ? "Atual" : "Anterior";
-      const count = measured+" de "+total+" publicações";
-      const missing = total ? "Métrica indisponível" : "Sem publicações";
-      return '<div class="format-series" data-series="'+period+'" tabindex="0" aria-label="'+label+' · '+dates+' · '+
-        comparison[key]+' · '+(value === null ? missing : formatValue(value))+' · '+count+(measured===1?" · Amostra pequena":"")+
-        '"><span class="format-series-label">'+label+'</span><span class="format-track" aria-hidden="true">'+
-        (value === null ? "" : '<i style="--bar:'+(value/max*100)+'%"></i>')+
-        '</span><strong>'+ (value === null ? "—" : formatValue(value))+'</strong><small>'+
-        (value === null ? missing : count+(measured===1?" · amostra pequena":""))+'</small>'+
-        '<span class="format-tooltip" aria-hidden="true">'+comparison[key]+' · '+dates+' · '+count+'</span></div>';
+    const panel = chart.querySelector(".editorial-well");
+    if (!panel.querySelector(".format-plot")) {
+      panel.innerHTML = '<div class="format-legend"><span data-series="current"></span><span data-series="previous"></span></div>'+
+        '<div class="format-chart"><div class="format-axis" aria-hidden="true"></div><div class="format-plot">'+
+        formats.map(({format}) =>
+          '<section class="format-comparison" data-format="'+format+'"><div class="format-stack">'+
+          '<span class="format-change"></span>'+
+          ["previous","current"].map(period => '<div class="format-series" data-series="'+period+'" tabindex="0">'+
+            '<strong></strong><span class="format-tooltip" aria-hidden="true"></span></div>').join("")+
+          '</div><h3>'+labels[format]+'</h3></section>').join("")+
+        '</div></div><p class="editorial-note muted format-method"></p>';
     }
-    chart.querySelector(".editorial-well").innerHTML =
-      '<div class="format-legend"><span data-series="current">Atual · '+current+partial+'</span><span data-series="previous">Anterior · '+prior+'</span></div>'+
-      '<div class="format-axis" aria-hidden="true"><span>0</span><span>'+compact.format(max/2)+'</span><span>'+compact.format(max)+'</span></div>'+
-      formats.map(({format,now,before,change}) =>
-        '<section class="format-comparison" data-format="'+format+'"><div class="format-heading"><h3>'+labels[format]+'</h3>'+
-        '<span class="muted">'+(change===null ? "Sem base comparável" : (change>0?"+":"")+formatValue(change,"%"))+'</span></div>'+
-        bar(now,"current",current)+bar(before,"previous",prior)+'</section>').join("")+
-      '<p class="muted editorial-note">Média por publicação · Métricas acumuladas. Publicações mais antigas podem ter tido mais tempo de exposição.</p>';
+    panel.querySelector('.format-legend [data-series="current"]').textContent = "Atual";
+    panel.querySelector('.format-legend [data-series="previous"]').textContent = "Anterior";
+    const method = panel.querySelector(".format-method");
+    method.hidden = !historical;
+    method.textContent = historical ? "Até "+formatDate(data.end)+" vs. até "+formatDate(previousEnd)+
+      ". Os conjuntos se sobrepõem e usam métricas acumuladas da mesma base." : "";
+    panel.querySelector(".format-axis").innerHTML = [1,.75,.5,.25,0].map(fraction =>
+      '<span>'+formatFeaturedMetric(max*fraction)+'</span>').join("");
+    for (const {format,now,before,change} of formats) {
+      const column = panel.querySelector('[data-format="'+format+'"]');
+      const changeLabel = column.querySelector(".format-change");
+      changeLabel.dataset.trend = change === null || change === 0 ? "neutral" : change > 0 ? "up" : "down";
+      changeLabel.textContent = change === null ? "—" : (change>0?"+":"")+formatValue(change,"%");
+      changeLabel.setAttribute("aria-label",change === null ? "Sem base comparável" : "Variação "+changeLabel.textContent);
+      for (const [period,sample,dates] of [["current",now,current+partial],["previous",before,prior]]) {
+        const segment = column.querySelector('[data-series="'+period+'"]');
+        const {value,total,measured} = sample;
+        const periodLabel = period === "current" ? "Atual" : "Anterior";
+        const result = value === null ? (total ? "Métrica indisponível" : "Sem publicações") : formatValue(value);
+        const detail = [labels[format],periodLabel+" "+dates,comparison[key]+": "+result,
+          measured+" de "+total+" publicações",measured===1 ? "Amostra pequena" : ""].filter(Boolean).join(" · ");
+        segment.style.setProperty("--segment-height",((value ?? 0)/max*100)+"%");
+        segment.dataset.empty = String(value === null || value === 0);
+        segment.setAttribute("aria-label",detail);
+        segment.querySelector("strong").textContent = formatFeaturedMetric(value);
+        segment.querySelector(".format-tooltip").textContent = detail;
+      }
+    }
   }
   const control = chart.querySelector(".metric-segments") ?? metricSelector(chart);
   control.onchange = event => renderComparison(event.target.value);

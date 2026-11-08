@@ -138,10 +138,14 @@ export const demoPublicationDetails = {
     destinations:[{account:"aurora", scheduledAt:"2026-11-04T11:00:00-03:00", publishedAt:"2026-11-04T15:20:00-03:00"}] },
 };
 
-// Historical fixtures used exclusively by the format comparison.
+// Additional publications for the two editorial widgets in demo mode.
 export const demoFormatHistory = [
-  {account:"aurora",date:offsetDay(demo.today,-1),format:"Reel",views:9420,reach:8200,likes:950},
-  {account:"casa",date:offsetDay(demo.today,-1),format:"Carrossel",views:10110,reach:7900,likes:480},
-  {account:"aurora",date:offsetDay(demo.today,-8),format:"Reel",views:8700,reach:7100,likes:850},
-  {account:"casa",date:offsetDay(demo.today,-8),format:"Carrossel",views:10600,reach:7600,likes:420},
+  {account:"aurora",date:offsetDay(demo.today,-1),format:"Reel",views:9420,likes:950},
+  {account:"casa",date:offsetDay(demo.today,-1),format:"Carrossel",views:10110,likes:480},
+  {account:"aurora",date:offsetDay(demo.today,-8),format:"Reel",views:8700,likes:850},
+  {account:"casa",date:offsetDay(demo.today,-8),format:"Carrossel",views:10600,likes:420},
+  {id:"demo-feed-now",account:"casa",date:demo.today,format:"Imagem",title:"Formas do cotidiano",cover:"texturas",views:6760,reach:4100,likes:280},
+  {id:"demo-feed-before",account:"casa",date:offsetDay(demo.today,-8),format:"Imagem",title:"Casa em detalhes",cover:"texturas",views:8200,reach:3800,likes:320},
+  {id:"demo-story-now",account:"aurora",date:demo.today,format:"Story",title:"Detalhes da coleção",cover:"aurora",views:4220,reach:2100},
+  {id:"demo-story-before",account:"aurora",date:offsetDay(demo.today,-8),format:"Story",title:"Bastidores da coleção",cover:"aurora",views:3560,reach:1900},
 ].map(post => ({...post,status:"Publicado"}));

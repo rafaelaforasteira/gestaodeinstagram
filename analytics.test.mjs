@@ -102,7 +102,12 @@ test("comparação por formato usa janelas equivalentes e distingue zero de aus�
   assert.equal(result.previousEnd,"2025-12-31");
   assert.deepEqual(result.formats[0],{format:"reel",now:{total:3,measured:2,value:10},before:{total:1,measured:1,value:5},change:100});
   assert.equal(result.formats[1].now.value,null);
-  for (const days of [1,7,30,90]) {
+  const historical = comparePublicationFormats(rows,new Set(["a","b"]),"2026-01-01","2026-01-01","views");
+  assert.equal(historical.historical,true);
+  assert.equal(historical.previousEnd,"2025-12-31");
+  assert.equal(historical.formats[0].now.value,2.5);
+  assert.equal(historical.formats[0].before.value,5);
+  for (const days of [7,30,90]) {
     const start=offsetDay("2026-01-02",1-days);
     const window=comparePublicationFormats([],new Set(),start,"2026-01-02","views");
     assert.equal(window.previousStart,offsetDay(start,-days));

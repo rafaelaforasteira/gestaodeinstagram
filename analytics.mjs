@@ -67,9 +67,16 @@ export function engagement(rows) {
 
 const publicationFormats = {Reel:"reel",Carrossel:"carousel",Imagem:"feed",Feed:"feed",Story:"story"};
 
-export function comparePublicationFormats(rows, accounts, start, end, metric) {
+export function selectEditorialPeriods(rows, accounts, start, end) {
   const eligible = rows.filter(post => post.status === "Publicado");
-  const {current,previous,previousStart} = selectPeriods(eligible,accounts,start,end);
+  const previousEnd = offsetDay(start,-1);
+  if (start !== end) return {...selectPeriods(eligible,accounts,start,end),previousEnd,historical:false};
+  const current = eligible.filter(post => accounts.has(post.account) && post.date <= end);
+  return {current,previous:current.filter(post => post.date <= previousEnd),previousStart:null,previousEnd,historical:true};
+}
+
+export function comparePublicationFormats(rows, accounts, start, end, metric) {
+  const {current,previous,previousStart,previousEnd,historical} = selectEditorialPeriods(rows,accounts,start,end);
   function summarize(posts, format) {
     const group = posts.filter(post => publicationFormats[post.format] === format);
     const values = group.map(post => post[metric]).filter(value => Number.isFinite(value) && value >= 0);
@@ -81,5 +88,5 @@ export function comparePublicationFormats(rows, accounts, start, end, metric) {
     const change = percentChange(now.value,before.value);
     return {format,now,before,change:Number.isFinite(change) ? change : null};
   });
-  return {formats,previousStart,previousEnd:offsetDay(start,-1)};
+  return {formats,previousStart,previousEnd,historical};
 }
