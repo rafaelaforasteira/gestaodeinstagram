@@ -26,9 +26,8 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
   const byId = id => document.getElementById(id);
   const root = byId("agenda"), content = byId("agenda-content");
   const selector = root.querySelector(".agenda-segments");
-  const dateInput = byId("agenda-date");
   let mode = matchMedia("(max-width: 600px)").matches ? "day" : "week";
-  let anchor = today, accounts = [], scope = "", events = [];
+  let anchor = today, accounts = [], scope = "", events = [], filterPeriod;
   const allowedDate = key => key >= "1900-01-01" && key <= "2099-12-31";
   const modeInput = value => selector.querySelector('[value="'+value+'"]');
   modeInput(mode).checked = true;
@@ -127,7 +126,6 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
     if (!root.getClientRects().length) return;
     const oldScroll = preserveScroll ? content.querySelector(".agenda-timeline")?.scrollTop : undefined;
     positionIndicator();
-    dateInput.value = anchor;
     const first = mode==="month" ? weekStart(monthStart(anchor)) : mode==="day" ? anchor : weekStart(anchor);
     const monthEnd = mode==="month" ? offsetDay(shiftMonth(anchor,1),-1) : null;
     const last = mode==="month" ? offsetDay(weekStart(monthEnd),6) : offsetDay(first,mode==="day" ? 0 : 6);
@@ -137,7 +135,7 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
     const period = mode==="month" ? monthLabel(anchor) : mode==="day" ? label(anchor,{dateStyle:"long"}) :
       dayLabel(first)+" a "+label(last,{dateStyle:"long"});
     byId("agenda-period").textContent = period;
-    byId("agenda-scope").textContent = [scope,"Horário de Brasília",isDemo ? "Dados de demonstração" : "Fonte de agendamentos não conectada"].filter(Boolean).join(" · ");
+    byId("agenda-scope").textContent = [scope,"Horário de Brasília",isDemo ? "Demonstração · Hoje: "+dayLabel(today) : "Fonte de agendamentos não conectada"].filter(Boolean).join(" · ");
     events = selectScheduledPosts(records,new Set(accounts.map(account => account.id)),from,to,timezone);
     const byDay = new Map();
     for (const post of events) {
@@ -166,14 +164,17 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
   byId("agenda-prev").onclick = () => move(-1);
   byId("agenda-next").onclick = () => move(1);
   byId("agenda-today").onclick = () => {anchor = today;render();};
-  dateInput.addEventListener("change",() => {
-    if (dateInput.value && dateInput.validity.valid) {anchor = dateInput.value;render();}
-    else dateInput.value = anchor;
-  });
   byId("agenda-new").onclick = () => openNew(anchor);
   return {
     render,
-    setScope(nextAccounts,nextScope) {accounts = nextAccounts;scope = nextScope;render(true);},
+    setScope(nextAccounts,nextScope,period) {
+      accounts = nextAccounts;
+      scope = nextScope;
+      const changed = period.start !== filterPeriod?.start || period.end !== filterPeriod?.end;
+      if (changed) anchor = period.end;
+      filterPeriod = period;
+      render(!changed);
+    },
     find(occurrence) {return events.find(post => post.occurrence===occurrence);},
   };
 }

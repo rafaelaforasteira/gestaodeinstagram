@@ -128,7 +128,7 @@ svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 .intro{display:flex;justify-content:space-between;align-items:end;gap:16px;margin:0 0 20px}
 .rank-label{background:var(--orange-soft);color:var(--orange-ink);border-radius:999px;padding:3px 7px;font-size:var(--text-caption);font-weight:600;white-space:nowrap}
 h1{font-size:var(--text-greeting);line-height:1.25;letter-spacing:-.03em;font-weight:600;margin-bottom:5px}
-#summary{color:var(--muted);font-size:var(--text-label)}
+.page-summary{color:var(--muted);font-size:var(--text-label)}
 .scope{display:flex;gap:7px;align-items:end;flex-wrap:wrap;justify-content:flex-end;flex:0 1 auto}
 .scope label{display:grid;gap:3px;color:var(--muted);font-size:var(--text-caption)}
 .scope-error{margin:-8px 0 12px;color:var(--red);font-size:var(--text-caption)}
@@ -445,13 +445,13 @@ th{font-size:inherit}
 .editorial-note{font-size:var(--text-caption);margin:9px 0 0}
 .operational-pages,.operational-pages>section{display:none}
 main[data-operation]:not([data-operation=""])>:not(.operational-pages,.filter-panel){display:none}
+main[data-operation="agenda"]>#overview-top{display:flex}
 main[data-operation]:not([data-operation=""])>.operational-pages,
 main[data-operation="activities"] #activities,main[data-operation="agenda"] #agenda,main[data-operation="attention"] #attention{display:block}
 .agenda-page{min-width:0}
 .agenda-header,.agenda-toolbar,.agenda-context{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.agenda-header{position:relative;padding-inline-end:36px;margin-bottom:18px}
-.agenda-header h2.widget-help-heading{position:static;padding-inline-end:0;font-size:var(--text-section)}
-.agenda-header .widget-help{inset-block-start:14px}
+.agenda-header{position:relative;justify-content:flex-end;padding-inline-end:36px;margin-bottom:12px}
+#agenda-filter-period-note{margin:0 0 8px}
 .agenda-actions,.agenda-navigation{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .agenda-navigation button{min-width:34px}
 .agenda-navigation button[aria-label]{font-size:18px}
@@ -496,7 +496,6 @@ main[data-operation="activities"] #activities,main[data-operation="agenda"] #age
 .agenda-detail-cover{display:block;width:min(200px,100%);max-height:150px;object-fit:cover;border-radius:var(--radius-control);margin-bottom:10px}
 .agenda-page [data-schedule-status]:not([data-schedule-status=Agendado],[data-schedule-status=Publicado]){background:var(--card);color:var(--text)}
 .agenda-page [data-schedule-status=Falha]{color:var(--red)!important}
-@media(max-width:600px){.agenda-header{padding-inline-end:0}.agenda-header h2{padding-inline-end:36px!important}.agenda-actions{flex-basis:100%}}
 @container workspace (min-width:1480px){th,td{padding-inline:12px}td[data-label="Data"]{white-space:nowrap}}
 @container workspace (min-width:2180px){
   .workspace main{display:grid;grid-template-columns:repeat(16,minmax(0,1fr));gap:var(--gap);align-content:start}

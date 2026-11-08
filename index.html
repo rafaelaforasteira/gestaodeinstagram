@@ -92,7 +92,8 @@
   <div class="content-shell"><div class="workspace scroll-region" role="region" aria-label="Área de trabalho" tabindex="0">
     <main id="content">
       <section class="intro" id="overview-top" aria-labelledby="greeting">
-        <div><h1 id="greeting">Boas-vindas ao Social Studio!</h1><p id="summary">Entenda como seus conteúdos estão performando e o que merece sua atenção.</p></div>
+        <div id="overview-heading"><h1 id="greeting">Boas-vindas ao Social Studio!</h1><p class="page-summary" id="summary">Entenda como seus conteúdos estão performando e o que merece sua atenção.</p></div>
+        <div id="agenda-heading" hidden><h1 id="agenda-page-title">Agenda</h1><p class="page-summary">Planeje e acompanhe suas publicações.</p></div>
         <button class="icon-button filter-trigger" id="filter-trigger" type="button" popovertarget="filter-panel" aria-label="Filtrar resultados" title="Filtrar resultados">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.223 7.989A2 2 0 0 1 10 14z"/></svg>
           <span id="filter-count" class="filter-count" aria-hidden="true"></span>
@@ -120,6 +121,7 @@
           </fieldset>
           <p id="network-empty" class="muted" hidden>Nenhuma rede conectada para este cliente.</p>
           <fieldset id="analysis-period"><legend>Período de análise</legend>
+            <p id="agenda-filter-period-note" class="muted" hidden>Ao mudar o período, a Agenda vai para a data final selecionada. O modo Dia, Semana, Mês ou Lista define o intervalo exibido.</p>
             <div class="period-options">
               <label><input type="radio" name="period" value="today" checked><span>Hoje</span></label>
               <label><input type="radio" name="period" value="yesterday"><span>Ontem</span></label>
@@ -181,10 +183,9 @@
           <div id="activity-table"></div>
         </section>
         <section class="card agenda-page" id="agenda" aria-labelledby="agenda-title">
-          <header class="agenda-header">
-            <div><h2 id="agenda-title">Agenda</h2><p class="muted">Planeje e acompanhe suas publicações.</p></div>
+          <header class="agenda-header" data-help-header>
+            <h2 id="agenda-title" class="sr-only">Agenda</h2>
             <div class="agenda-actions">
-              <button class="button" type="button" id="agenda-filters" popovertarget="filter-panel"><svg aria-hidden="true"><use href="#icon-filter"/></svg> Filtros</button>
               <button class="button primary" type="button" id="agenda-new">+ Nova publicação</button>
             </div>
           </header>
@@ -193,7 +194,6 @@
               <button class="button" type="button" id="agenda-prev" aria-label="Período anterior">‹</button>
               <button class="button" type="button" id="agenda-today">Hoje</button>
               <button class="button" type="button" id="agenda-next" aria-label="Próximo período">›</button>
-              <label class="agenda-date"><span class="sr-only">Ir para data</span><input type="date" id="agenda-date" min="1900-01-01" max="2099-12-31"></label>
             </div>
             <div class="metric-segments agenda-segments" role="radiogroup" aria-label="Visualização da Agenda">
               <div class="metric-segments-track">

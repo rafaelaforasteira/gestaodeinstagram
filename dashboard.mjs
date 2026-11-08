@@ -459,7 +459,7 @@ function refresh() {
   agenda.setScope(data.accounts, [
     demo.clients.find(client => client.id === appliedFilters.client)?.name ?? "Todos os clientes",
     data.accounts.find(account => account.id === appliedFilters.account)?.name ?? "Todas as redes",
-  ].join(" · "));
+  ].join(" · "), selected);
   renderWidgetHelp(isDemo);
   const {client,account,period} = appliedFilters;
   const count = ["client","account","period"].filter(key => appliedFilters[key] !== defaultFilters[key]).length;
@@ -771,13 +771,13 @@ $("calendar-days").addEventListener("click", (event) => {
   moveCalendar(day,true);
 });
 function placeFilterPanel() {
-  const anchor = currentFilterTrigger().getBoundingClientRect();
+  const anchor = filterTrigger.getBoundingClientRect();
   filterPanel.style.setProperty("--filter-right", Math.max(12,innerWidth-anchor.right) + "px");
   filterPanel.style.setProperty("--filter-top", Math.max(12,Math.min(anchor.bottom+8,innerHeight-180)) + "px");
 }
 filterPanel.addEventListener("beforetoggle", (event) => {
   if (event.newState !== "open") return;
-  $("analysis-period").hidden = location.hash === "#agenda";
+  $("agenda-filter-period-note").hidden = location.hash !== "#agenda";
   resetFilterDraft(appliedFilters);
   placeFilterPanel();
 });
@@ -803,8 +803,7 @@ filterForm.addEventListener("change", (event) => {
   }
   $("scope-error").hidden = true;
 });
-$("clear-filters").addEventListener("click", () => resetFilterDraft(location.hash === "#agenda" ?
-  {...appliedFilters,client:defaultFilters.client,account:defaultFilters.account} : defaultFilters));
+$("clear-filters").addEventListener("click", () => resetFilterDraft(defaultFilters));
 filterForm.noValidate = true;
 filterForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -826,11 +825,8 @@ filterForm.addEventListener("submit", (event) => {
   appliedFilters = draft;
   refresh();
   filterPanel.hidePopover();
-  currentFilterTrigger().focus();
+  filterTrigger.focus();
 });
-function currentFilterTrigger() {
-  return location.hash === "#agenda" ? $("agenda-filters") : filterTrigger;
-}
 
 if (!isDemo) {
   $("summary").textContent="Conecte uma fonte autorizada para acompanhar resultados e atividades.";
@@ -888,6 +884,9 @@ function updateNavigation() {
   const route = current.slice(1);
   const main = document.querySelector(".workspace main");
   main.dataset.operation = ["activities","agenda","attention"].includes(route) ? route : "";
+  $("overview-heading").hidden = route === "agenda";
+  $("agenda-heading").hidden = route !== "agenda";
+  $("overview-top").setAttribute("aria-labelledby",route === "agenda" ? "agenda-page-title" : "greeting");
   if (filterPanel.matches(":popover-open")) filterPanel.hidePopover();
   if (route === "agenda") agenda.render();
   if (main.dataset.operation || route === "overview-top") contentViewport.scrollTo({top:0,behavior:"instant"});

@@ -20,7 +20,7 @@ A prévia estática não possui sincronização Meta Insights, cache remoto ou h
 
 ## Agenda
 
-Consulte a [guia oficial da Agenda](https://docs.google.com/document/d/1q9ySzYvNYcAoEiqcuOkW96SIwdAcrW4hQEAKEd45v70/edit?tab=t.c9euvnwy06cd). A rota `#agenda` usa o AppShell e os mesmos filtros de cliente e conta da Visão Geral. Dia, Semana, Mês e Lista definem o intervalo visível; o período de análise da Visão Geral fica preservado e não restringe a Agenda. A semana começa na segunda-feira, e horários e datas dos agendamentos são convertidos para `America/Sao_Paulo`.
+Consulte a [guia oficial da Agenda](https://docs.google.com/document/d/1q9ySzYvNYcAoEiqcuOkW96SIwdAcrW4hQEAKEd45v70/edit?tab=t.c9euvnwy06cd). A rota `#agenda` reutiliza o cabeçalho externo, o botão com contador e o painel global de filtros da Visão Geral. Aplicar um período diferente leva a Agenda à data final escolhida; Dia, Semana, Mês e Lista determinam o intervalo visível, sem recortar suas publicações pelo período de análise. A seleção direta de data foi retirada da barra de navegação; o calendário personalizado continua no filtro. A semana começa na segunda-feira, e horários e datas dos agendamentos são convertidos para `America/Sao_Paulo`.
 
 O calendário e Posts programados usam a mesma fonte demonstrativa. A Agenda inclui registros históricos com horário, enquanto o widget exibe apenas agendamentos ativos. Os cards compartilham cores por formato, miniaturas, redes e indicadores de status. Na grade, a rolagem interna permite acessar as 24 horas, e ocorrências no mesmo horário ficam empilhadas.
 

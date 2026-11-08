@@ -61,7 +61,7 @@ export function renderWidgetHelp(isDemo) {
   for (const [id, description] of Object.entries(widgetHelp)) {
     const heading = document.getElementById(id);
     if (!heading) continue;
-    const parent = heading.closest(".kpi-heading") ?? heading;
+    const parent = heading.closest(".kpi-heading,[data-help-header]") ?? heading;
     if (parent.querySelector(".widget-help")) continue;
     document.getElementById(id + "-help")?.remove();
     const button = document.createElement("button");
