@@ -22,29 +22,126 @@ function element(tag,className,text) {
   return node;
 }
 
-export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
-  const byId = id => document.getElementById(id);
-  const root = byId("agenda"), content = byId("agenda-content");
-  const selector = root.querySelector(".agenda-segments");
-  let mode = matchMedia("(max-width: 600px)").matches ? "day" : "week";
-  let anchor = today, accounts = [], scope = "", events = [], filterPeriod;
-  const allowedDate = key => key >= "1900-01-01" && key <= "2099-12-31";
-  const modeInput = value => selector.querySelector('[value="'+value+'"]');
-  modeInput(mode).checked = true;
+function createAgendaClock(timezone, onTick) {
+  const date=new Intl.DateTimeFormat("pt-BR",{dateStyle:"full",timeZone:timezone});
+  const time=new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit",hourCycle:"h23",timeZone:timezone});
+  const line=document.getElementById("agenda-clock-date");
+  let timer, lifecycle;
+  function stop() {clearTimeout(timer);}
+  function update() {
+    stop();
+    if (document.hidden) return;
+    const now=new Date();
+    const [hour,minute]=time.format(now).split(":");
+    line.textContent="Hoje é "+date.format(now)+", às "+hour+"h"+minute+".";
+    onTick(now);
+    timer=setTimeout(update,60000-(Date.now()%60000));
+  }
+  return active=>{
+    if (!active) {stop();lifecycle?.abort();lifecycle=undefined;return;}
+    if (lifecycle) return;
+    lifecycle=new AbortController();
+    const options={signal:lifecycle.signal};
+    document.addEventListener("visibilitychange",update,options);
+    window.addEventListener("pagehide",stop,options);
+    window.addEventListener("pageshow",update,options);
+    update();
+  };
+}
 
+export function connectSegmentIndicator(selector) {
   function positionIndicator() {
-    const selected = modeInput(mode).parentElement;
+    const selected = selector.querySelector("input:checked")?.parentElement;
+    if (!selected) return;
     selector.style.setProperty("--segment-x",selected.offsetLeft+"px");
     selector.style.setProperty("--segment-width",selected.offsetWidth+"px");
   }
   new ResizeObserver(positionIndicator).observe(selector);
+  selector.addEventListener("change",positionIndicator);
+  return positionIndicator;
+}
+
+export function createAgenda({referenceDate,timezone,isDemo,records,card,openNew}) {
+  const byId = id => document.getElementById(id);
+  const root = byId("agenda"), content = byId("agenda-content");
+  const dateKey = new Intl.DateTimeFormat("sv-SE",{timeZone:timezone});
+  let today = dateKey.format(new Date());
+  const selector = root.querySelector(".agenda-segments");
+  let mode = matchMedia("(max-width: 600px)").matches ? "day" : "week";
+  let anchor = referenceDate, accounts = [], scope = "", events = [], filterPeriod;
+  let miniMonth = monthStart(anchor);
+  const setClockActive = createAgendaClock(timezone, now => {
+    const current = dateKey.format(now);
+    if (current !== today) {
+      today = current;
+      render(true);
+    }
+  });
+  const miniDays = byId("agenda-mini-days");
+  const modeInput = value => selector.querySelector('[value="'+value+'"]');
+
+  const positionIndicator = connectSegmentIndicator(selector);
+
+  function renderMini(focusDate) {
+    byId("agenda-mini-month").textContent = monthLabel(miniMonth);
+    const weekdays = ["D","S","T","Q","Q","S","S"].map(name => {
+      const item = element("span","agenda-mini-weekday",name);
+      item.setAttribute("aria-hidden","true");
+      return item;
+    });
+    const first = offsetDay(miniMonth,-utc(miniMonth).getUTCDay());
+    const buttons = dates(first,42).map(day => {
+      const button = element("button","agenda-mini-day",String(Number(day.slice(-2))));
+      button.type = "button";
+      button.dataset.date = day;
+      button.dataset.outside = String(monthStart(day) !== miniMonth);
+      button.setAttribute("aria-label",label(day,{dateStyle:"full"}));
+      button.setAttribute("aria-pressed",String(day === anchor));
+      if (day === today) button.setAttribute("aria-current","date");
+      button.onclick = () => selectDate(day,true);
+      return button;
+    });
+    miniDays.replaceChildren(...weekdays,...buttons);
+    if (focusDate) miniDays.querySelector('[data-date="'+focusDate+'"]')?.focus({preventScroll:true});
+  }
+
+  function selectDate(day,focusDay = false) {
+    anchor = day;
+    miniMonth = monthStart(day);
+    render(false,focusDay ? day : undefined);
+  }
+
+  for (const [id,step] of [["agenda-mini-prev",-1],["agenda-mini-next",1]]) {
+    byId(id).onclick = () => {
+      miniMonth = shiftMonth(miniMonth,step);
+      renderMini();
+    };
+  }
 
   function showDay(key) {
-    anchor = key;
     mode = "day";
-    modeInput(mode).checked = true;
-    render();
+    selectDate(key);
     modeInput(mode).focus();
+  }
+
+  function dateIndicator(day, withWeekday = false) {
+    const indicator = element(withWeekday ? "time" : "button","agenda-day-heading");
+    if (withWeekday) {
+      indicator.dateTime = day;
+      const name = element("span","agenda-weekday",weekday(day));
+      name.setAttribute("aria-hidden","true");
+      indicator.append(name);
+    } else {
+      indicator.type = "button";
+      indicator.classList.add("agenda-month-date");
+      indicator.setAttribute("aria-pressed",String(day === anchor));
+      indicator.onclick = () => showDay(day);
+    }
+    const number = element("span","agenda-day-number",String(Number(day.slice(-2))));
+    number.setAttribute("aria-hidden","true");
+    indicator.append(number,element("span","sr-only",label(day,{dateStyle:"full"})));
+    if (day === today) indicator.setAttribute("aria-current","date");
+    return indicator;
   }
 
   function timeline(days,byDay,initialScroll) {
@@ -55,13 +152,9 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
     const grid = element("div","agenda-hours");
     grid.style.setProperty("--agenda-days",String(days.length));
     grid.dataset.mode = mode;
-    const header = element("div","agenda-hour-row agenda-hour-header");
+    const header = element("div","agenda-hour-row agenda-hour-header agenda-date-surface");
     header.append(element("span","agenda-hour-label","BRT"));
-    for (const day of days) {
-      const heading = element("span","agenda-day-heading",weekday(day)+" "+day.slice(-2));
-      if (day===today) heading.setAttribute("aria-current","date");
-      header.append(heading);
-    }
+    for (const day of days) header.append(dateIndicator(day,true));
     grid.append(header);
     for (let hour=0;hour<24;hour++) {
       const row = element("div","agenda-hour-row");
@@ -77,14 +170,8 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
       for (const day of days) {
         const cell = element("div","agenda-hour-cell");
         const entries = (byDay.get(day) ?? []).filter(post => post.time.startsWith(hourText+":"));
-        let bottom = 0;
-        for (const post of entries) {
-          const item = card(post);
-          const minuteOffset = Number(post.time.slice(3))*1.45;
-          item.style.marginBlockStart = Math.max(0,minuteOffset-bottom)+"px";
-          bottom = Math.max(bottom,minuteOffset)+80;
-          cell.append(item);
-        }
+        if (entries.length) cell.style.setProperty("--agenda-first-minute",Number(entries[0].time.slice(3)));
+        cell.append(...entries.map(card));
         row.append(cell);
       }
       grid.append(row);
@@ -103,16 +190,11 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
     viewport.setAttribute("role","region");
     viewport.setAttribute("aria-label","Calendário mensal");
     const grid = element("div","agenda-month");
-    for (const day of days.slice(0,7)) grid.append(element("div","agenda-day-heading",weekday(day)));
+    for (const day of days.slice(0,7)) grid.append(element("div","agenda-day-heading agenda-weekday agenda-date-surface",weekday(day)));
     for (const day of days) {
       const cell = element("div","agenda-month-cell");
       cell.dataset.outside = String(day.slice(0,7)!==anchor.slice(0,7));
-      const link = element("button","button agenda-month-date",String(Number(day.slice(-2))));
-      link.type = "button";
-      link.setAttribute("aria-label",label(day,{dateStyle:"full"}));
-      if (day===today) link.setAttribute("aria-current","date");
-      link.onclick = () => showDay(day);
-      cell.append(link);
+      cell.append(dateIndicator(day));
       const entries = byDay.get(day) ?? [];
       cell.append(...entries.slice(0,2).map(card));
       if (entries.length>2) {
@@ -128,10 +210,14 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
     content.append(viewport);
   }
 
-  function render(preserveScroll = false) {
+  function render(preserveScroll = false,focusDate) {
     if (!root.getClientRects().length) return;
     const oldScroll = preserveScroll ? content.querySelector(".agenda-timeline")?.scrollTop : undefined;
+    for (const input of selector.querySelectorAll("input")) {
+      input.checked = input.value === mode && (mode !== "day" || anchor === today);
+    }
     positionIndicator();
+    renderMini(focusDate);
     const first = mode==="month" ? weekStart(monthStart(anchor)) : mode==="day" ? anchor : weekStart(anchor);
     const monthEnd = mode==="month" ? offsetDay(shiftMonth(anchor,1),-1) : null;
     const last = mode==="month" ? offsetDay(weekStart(monthEnd),6) : offsetDay(first,mode==="day" ? 0 : 6);
@@ -140,8 +226,8 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
     const to = monthEnd ?? last;
     const period = mode==="month" ? monthLabel(anchor) : mode==="day" ? label(anchor,{dateStyle:"long"}) :
       dayLabel(first)+" a "+label(last,{dateStyle:"long"});
-    byId("agenda-period").textContent = period;
-    byId("agenda-scope").textContent = [scope,"Horário de Brasília",isDemo ? "Demonstração · Hoje: "+dayLabel(today) : "Fonte de agendamentos não conectada"].filter(Boolean).join(" · ");
+    content.setAttribute("aria-label","Calendário: "+period);
+    byId("agenda-scope").textContent = [scope,"Horário de Brasília",isDemo ? "Data-base da demonstração: "+dayLabel(referenceDate) : "Fonte de agendamentos não conectada"].filter(Boolean).join(" · ");
     events = selectScheduledPosts(records,new Set(accounts.map(account => account.id)),from,to,timezone);
     const byDay = new Map();
     for (const post of events) {
@@ -162,29 +248,35 @@ export function createAgenda({today,timezone,isDemo,records,card,openNew}) {
     } else timeline(days,byDay,oldScroll);
   }
 
-  function move(step) {
-    const next = mode==="month" ? shiftMonth(anchor,step) : offsetDay(anchor,step*(mode==="day" ? 1 : 7));
-    if (allowedDate(next)) {anchor = next;render();}
+  function showToday() {
+    today = dateKey.format(new Date());
+    selectDate(today);
   }
-  selector.addEventListener("change",event => {mode = event.target.value;render();});
-  byId("agenda-prev").onclick = () => move(-1);
-  byId("agenda-next").onclick = () => move(1);
-  byId("agenda-today").onclick = () => {anchor = today;render();};
+  modeInput("day").addEventListener("click", () => {
+    if (mode === "day" && anchor === today) showToday();
+  });
+  selector.addEventListener("change",event => {
+    mode = event.target.value;
+    if (mode === "day") showToday();
+    else render();
+  });
   byId("agenda-new").onclick = () => openNew(anchor);
   return {
     render,
+    setClockActive,
     viewDate(day) {
-      anchor=day;
       mode="list";
-      modeInput(mode).checked=true;
-      render();
+      selectDate(day);
       modeInput(mode).focus();
     },
     setScope(nextAccounts,nextScope,period) {
       accounts = nextAccounts;
       scope = nextScope;
       const changed = period.start !== filterPeriod?.start || period.end !== filterPeriod?.end;
-      if (changed) anchor = period.end;
+      if (changed) {
+        anchor = period.end;
+        miniMonth = monthStart(anchor);
+      }
       filterPeriod = period;
       render(!changed);
     },

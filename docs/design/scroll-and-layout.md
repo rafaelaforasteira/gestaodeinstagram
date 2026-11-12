@@ -9,3 +9,5 @@ O indicador laranja #F47745 tem 1,5 px e trilho transparente. ContentViewport e 
 O ContentViewport usa degradês de 24 px com a cor da superfície, separados do indicador. Cada borda só mostra o efeito quando há conteúdo além dela. Os degradês não recebem eventos. Posts programados conserva seus degradês independentes e o botão laranja no rodapé. A lista é uma exceção visual: mantém rolagem nativa com a barra oculta.
 
 Valide rolagem por teclado e toque, zoom, topo e fim da página, temas claro e escuro e sidebar expandida e recolhida. Confira HD, Full HD, ultrawide e celular, com conteúdo suficiente para ativar as barras internas.
+
+Na Gestão de Banners, cada cliente permite rolagem interna apenas na lista de banners. O cabeçalho permanece fora da lista. O limite visual corresponde a dois banners completos. O indicador visual permanece oculto na lista de banners. A rolagem nativa e os fades das extremidades continuam funcionando.

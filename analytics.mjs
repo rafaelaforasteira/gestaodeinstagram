@@ -91,16 +91,17 @@ export function comparePublicationFormats(rows, accounts, start, end, metric) {
   return {formats,previousStart,previousEnd,historical};
 }
 
+export function bannerStatus(banner, now) {
+  if (["paused","archived","inactive"].includes(banner.state) || (banner.endsAt && Date.parse(banner.endsAt) <= now)) return "inactive";
+  if (banner.state !== "published" || !Number.isFinite(Date.parse(banner.startsAt))) return null;
+  return Date.parse(banner.startsAt) > now ? "scheduled" : "live";
+}
+
 export function summarizeLinkBio(banners, events, accounts, start, end, now) {
   const scoped = new Map(banners.filter(banner => accounts.has(banner.account)).map(banner => [banner.id,banner]));
   const statuses = {live:0,scheduled:0,inactive:0};
-  const state = banner => {
-    if (["paused","archived","inactive"].includes(banner.state) || (banner.endsAt && Date.parse(banner.endsAt) <= now)) return "inactive";
-    if (banner.state !== "published" || !Number.isFinite(Date.parse(banner.startsAt))) return null;
-    return Date.parse(banner.startsAt) > now ? "scheduled" : "live";
-  };
   for (const banner of scoped.values()) {
-    const status = state(banner);
+    const status = bannerStatus(banner,now);
     if (status) statuses[status]++;
   }
 
@@ -122,7 +123,7 @@ export function summarizeLinkBio(banners, events, accounts, start, end, now) {
   }
   const ranking = [...counts].map(([id,clicks]) => {
     const banner = scoped.get(id);
-    return {...banner,status:state(banner),clicks};
+    return {...banner,status:bannerStatus(banner,now),clicks};
   }).sort((a,b) => b.clicks-a.clicks || a.name.localeCompare(b.name,"pt-BR") || a.id.localeCompare(b.id)).slice(0,5);
   return {clicks,change:percentChange(clicks,previous),statuses,ranking};
 }

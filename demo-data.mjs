@@ -18,6 +18,7 @@ export const demo = {
     { id: "casa", workspace: "studio", client:"casanova", platform:"Instagram", connected:true, name: "@casanova.design", followers: 3900 },
     { id: "forma", workspace: "lab", client:"forma-lab", platform:"Instagram", connected:true, name: "@forma.lab", followers: 1780 },
     { id: "forma-editorial", workspace: "lab", client:"forma-lab", platform:"Instagram", connected:true, name: "@forma.editorial", followers: 320 },
+    { id: "casa-atelier", workspace: "studio", client:"casanova", platform:"Instagram", connected:false, name: "@casanova.atelie", connectionChangedAt:"2026-11-05T16:30:00-03:00" },
   ],
 };
 
@@ -27,7 +28,7 @@ export function offsetDay(day, offset) {
   return date.toISOString().slice(0, 10);
 }
 
-export const samples = demo.accounts.flatMap((account, index) => Array.from({length: 180}, (_, day) => {
+export const samples = demo.accounts.filter(account => account.connected).flatMap((account, index) => Array.from({length: 180}, (_, day) => {
   const reach = Math.round((510 + 90 * Math.sin(day / 4) + 100 * Math.cos(day * 1.7) + (180 - day) * 3) * (1 - index * .28));
   return { account: account.id, date: offsetDay(demo.today, -day), reach, views: Math.round(reach * 2.1),
     interactions: Math.round(reach * (.041 + .006 * Math.sin(day))), saves: Math.round(reach * .011) };
@@ -124,7 +125,7 @@ demoSchedules.push(...[
 }));
 
 // Confirmed historical fixtures scoped to the editorial heatmap.
-export const demoEditorialHistory = demo.accounts.flatMap(({id:account},index) =>
+export const demoEditorialHistory = demo.accounts.filter(account => account.connected).flatMap(({id:account},index) =>
   Array.from({length:174},(_,day) => {
     const seed = (day * 17 + Math.floor(day / 7) * 3 + index * 13) % 29;
     const count = seed < 11 ? 0 : seed % 5;
@@ -170,6 +171,30 @@ export const demoBioBanners = [
   id:"bio-"+index,account,name,cover,state,clicks,
   startsAt:offsetDay(demo.today,index===5?2:-20)+"T08:00:00-03:00",
 }));
+
+export const demoBannerClients = [
+  {id:"bela-joias",workspace:"studio",name:"Bela Joias"},
+  {id:"verde-cafe",workspace:"studio",name:"Verde Café"},
+  {id:"atelie-lume",workspace:"studio",name:"Ateliê Lume"},
+];
+export const demoBannerAccounts = demoBannerClients.map(client => ({
+  id:"banner-"+client.id,workspace:client.workspace,client:client.id,
+  name:client.name,connected:true,
+}));
+const bannerSamples = [
+  ["bela-joias",["Coleção dourada","Presentes especiais","Novos detalhes","Últimas peças"]],
+  ["verde-cafe",["Café da manhã","Sabores da estação"]],
+  ["atelie-lume",["Luz e formas","Peças autorais","Texturas do ateliê","Novas composições","Visite o ateliê"]],
+];
+for (const [client,names] of bannerSamples) {
+  names.forEach((name,index) => demoBioBanners.push({
+    id:"banner-sample-"+client+"-"+index,account:"banner-"+client,name,
+    cover:index%2 ? "texturas" : "aurora",state:index===3 ? "paused" : "published",
+    startsAt:offsetDay(demo.today,index===2 ? 3 : -10)+"T08:00:00-03:00",
+    endsAt:index%2 ? offsetDay(demo.today,20)+"T23:59:00-03:00" : "",
+    order:index,
+  }));
+}
 
 export const demoBioClicks = demoBioBanners.flatMap(banner =>
   [0,1,5,12,35].flatMap((days,index) =>

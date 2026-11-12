@@ -1,8 +1,9 @@
+import { createBannerManager } from "./banners.mjs";
 import { renderWidgetHelp } from "./widget-help.mjs";
 import { createAgenda } from "./agenda.mjs";
 import { createComposer } from "./composer.mjs";
 import { destinationName, publicationNetworkBadges, publicationFormatIcons, publicationFormatTag, renderIntelligence } from "./editorial.mjs";
-import { demo, demoEditorialHistory, demoFollowerSnapshot, demoPeriodInsights, demoSchedules, offsetDay, samples, posts } from "./demo-data.mjs";
+import { demo, demoBannerClients, demoBannerAccounts, demoEditorialHistory, demoFollowerSnapshot, demoPeriodInsights, demoPublicationDetails, demoSchedules, offsetDay, samples, posts } from "./demo-data.mjs";
 import { accountsInScope, completeTotal, percentChange, selectPeriods, selectActiveSchedules, sum } from "./analytics.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -282,10 +283,67 @@ function renderEditorial(data) {
   renderIntelligence(data, {isDemo, today, icon, formatDate});
   const failures = data.activity.filter(({status}) => status === "Falha");
   $("editorial-alert").hidden = !failures.length;
-  $("alerts").innerHTML = failures.length ? '<ul class="detail-list">' + failures.map((post) =>
-    '<li><button class="button" data-post="' + post.id + '">Revisar ' + post.title + '</button></li>').join("") +
-    '</ul>' : empty(isDemo ? "Nenhuma falha neste período." : "Dados operacionais indisponíveis.");
+}
 
+function renderAttention(accounts) {
+  const alerts = [];
+  const dateTime = new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,dateStyle:"short",timeStyle:"short"});
+  const clientName = id => scopedClients.find(client => client.id === id)?.name;
+  const byAccount = new Map(accounts.map(account => [account.id,account]));
+  if (isDemo) {
+    // The latest schedule state supersedes the editorial record for the same publication.
+    const publications = new Map(posts.map(post => [post.account+":"+post.id,post]));
+    for (const post of scheduleRecords) publications.set(post.account+":"+post.id,post);
+    for (const post of publications.values()) {
+      const account = byAccount.get(post.account);
+      if (!account || post.status !== "Falha") continue;
+      alerts.push({kind:"publication",title:"Falha na publicação",name:post.title,client:clientName(account.client),
+        account:account.name,at:post.scheduledAt ?? post.date+"T"+post.hour+":00-03:00",status:"Falha"});
+    }
+    if (appliedFilters.account === "all") {
+      for (const account of demo.accounts) {
+        if (account.connected !== false || account.workspace !== activeWorkspace?.id || !clientName(account.client) ||
+            (appliedFilters.client !== "all" && appliedFilters.client !== account.client)) continue;
+        alerts.push({kind:"connection",title:"Conta desconectada",name:account.name,client:clientName(account.client),
+          at:account.connectionChangedAt,status:"Desconectada"});
+      }
+    }
+    alerts.sort((a,b) => Number(a.kind==="connection")-Number(b.kind==="connection") ||
+      (Date.parse(b.at)||0)-(Date.parse(a.at)||0));
+  }
+
+  function fill(root,visible) {
+    root.replaceChildren();
+    if (!visible.length) {
+      const message = scheduleElement("p","agenda-alert-empty");
+      if (isDemo) message.innerHTML = icon("check")+" <strong>Tudo em dia!</strong>";
+      message.append(document.createTextNode(isDemo ? " Nenhuma pendência neste escopo." : "Fonte de alertas operacionais indisponível."));
+      root.append(message);
+      return;
+    }
+    const list = scheduleElement("ul","agenda-alert-list");
+    for (const alert of visible) {
+      const item = scheduleElement("li");
+      const button = scheduleElement("button","agenda-alert-item");
+      button.type = "button";
+      button.dataset.kind = alert.kind;
+      button.innerHTML = icon(alert.kind === "connection" ? "unplug" : "circle-alert");
+      const summary = scheduleElement("span");
+      const when = Number.isFinite(Date.parse(alert.at)) ? dateTime.format(new Date(alert.at)) : "";
+      summary.append(scheduleElement("strong","",alert.title),scheduleElement("span","",alert.name),
+        scheduleElement("span","muted",[alert.client,when].filter(Boolean).join(" · ")));
+      button.append(summary);
+      button.onclick = () => openDialog(alert.name,[alert.title,alert.client,alert.account,when,"Estado: "+alert.status,"Dados de demonstração."].filter(Boolean));
+      item.append(button);
+      list.append(item);
+    }
+    root.append(list);
+  }
+  fill($("agenda-alerts"),alerts.slice(0,3));
+  fill($("alerts"),alerts);
+  $("agenda-alert-count").textContent = alerts.length;
+  $("agenda-alert-count").hidden = !alerts.length;
+  $("agenda-alert-all").hidden = !alerts.length;
 }
 
 
@@ -332,12 +390,20 @@ function scheduledTag(label, symbol, kind) {
   return tag;
 }
 
+function agendaPublicationStatus(post) {
+  const statuses = new Set((post.destinations ?? []).map(destination => destination.status || post.status));
+  return statuses.size > 1 ? "Parcial" : [...statuses][0] || post.status;
+}
+
 function scheduledCard(post, inAgenda = false) {
   const title = post.title || post.format + " sem título";
   const card = scheduleElement("button","scheduled-post");
   card.type = "button";
   card.dataset.schedule = post.occurrence;
-  if (inAgenda) card.dataset.agendaEvent = "";
+  if (inAgenda) {
+    card.dataset.agendaEvent = "";
+    card.dataset.title = title;
+  }
   card.dataset.publicationFormat = ({Story:"story",Reel:"reel",Carrossel:"carousel",Imagem:"feed",Feed:"feed"})[post.format] ?? "unknown";
   const thumb = scheduleElement("span","scheduled-thumb");
   thumb.setAttribute("aria-hidden","true");
@@ -355,7 +421,7 @@ function scheduledCard(post, inAgenda = false) {
   const destinations = post.destinations ?? [];
   const differentTimes = destinations.some(destination => destination.scheduledAt &&
     Date.parse(destination.scheduledAt) !== Date.parse(post.scheduledAt));
-  const time = differentTimes ? "Horários diferentes" : post.time;
+  const time = differentTimes && !inAgenda ? "Horários diferentes" : post.time;
   function detail(symbol, value, kind) {
     const item = scheduleElement("span","scheduled-meta-item scheduled-"+kind);
     item.innerHTML = icon(symbol);
@@ -369,11 +435,29 @@ function scheduledCard(post, inAgenda = false) {
   group.append(...publicationNetworkBadges(destinations,icon));
   const heading = scheduleElement("strong","",title);
   heading.title = title;
-  body.append(heading,client);
+  if (inAgenda) {
+    const titleRow = scheduleElement("span","agenda-event-title");
+    titleRow.append(heading,clock);
+    body.append(client,titleRow);
+  } else {
+    body.append(heading,client);
+  }
   const accent = scheduleElement("span","scheduled-accent");
   accent.setAttribute("aria-hidden","true");
-  card.append(thumb,accent,body,group,clock,publicationFormatTag(post.format,icon));
-  if (post.status === "Agendado" || inAgenda) {
+  const format = publicationFormatTag(post.format,icon);
+  if (inAgenda) {
+    const meta = scheduleElement("span","agenda-event-meta");
+    meta.append(group,format);
+    const statusLabel = agendaPublicationStatus(post);
+    const statusIcon = {Publicado:"check",Agendado:"calendar",Falha:"circle-alert",Cancelado:"circle-alert",Rascunho:"posts",Parcial:"circle-alert"}[statusLabel] ?? "clock";
+    const status = scheduledTag(statusLabel,statusIcon,"status");
+    status.dataset.scheduleStatus = statusLabel;
+    meta.append(status);
+    card.append(accent,thumb,body,meta);
+    return card;
+  }
+  card.append(thumb,accent,body,group,clock,format);
+  if (post.status === "Agendado") {
     const status = scheduledTag(post.status,post.status === "Agendado" || post.status === "Publicado" ? "check" : "", "status");
     status.dataset.scheduleStatus = post.status;
     card.append(status);
@@ -457,6 +541,7 @@ function refresh() {
   renderAnalytics(data);
   renderScheduledPosts(data);
   renderEditorial(data);
+  renderAttention(data.accounts);
   renderTable();
   agenda.setScope(data.accounts, [
     demo.clients.find(client => client.id === appliedFilters.client)?.name ?? "Todos os clientes",
@@ -465,6 +550,12 @@ function refresh() {
   renderWidgetHelp(isDemo);
   const {client,account,period} = appliedFilters;
   const count = ["client","account","period"].filter(key => appliedFilters[key] !== defaultFilters[key]).length;
+  const agendaCount = Number(client !== "all") + Number(account !== "all");
+  const agendaBadge = $("agenda-filter-count");
+  agendaBadge.textContent = agendaCount || "";
+  agendaBadge.dataset.active = String(agendaCount > 0);
+  $("agenda-filter-trigger").setAttribute("aria-label",agendaCount ?
+    "Filtrar cliente e contas do Instagram, "+agendaCount+" filtro(s) ativo(s)" : "Filtrar cliente e contas do Instagram");
   const badge = $("filter-count");
   if (count) badge.textContent = count;
   badge.dataset.active = String(count > 0);
@@ -479,7 +570,132 @@ function refresh() {
   $("scope-status").textContent = "Indicadores atualizados para " + formatDate(selected.start) + " a " + formatDate(selected.end) + ".";
 }
 
+function openAgendaDetail(post) {
+  const dialog = $("dialog");
+  const title = $("dialog-title");
+  title.textContent = post.title || post.format + " sem título";
+  const el = scheduleElement;
+  const account = accountName(post.account);
+  const sample = isDemo ? demoPublicationDetails[post.id] : undefined;
+  const destinations = (post.destinations ?? []).map(destination => ({
+    ...destination,
+    ...sample?.destinations.find(item => item.account === post.account && destination.platform === "instagram"),
+  }));
+  const caption = (post.caption ?? sample?.caption)?.trim() || "Sem legenda";
+  const format = publicationFormatTag(post.format,icon);
+  const status = agendaPublicationStatus(post);
+  const preview = el("div","agenda-detail-preview");
+  const header = el("div","agenda-detail-preview-header");
+  header.append(...publicationNetworkBadges(destinations.slice(0,1),icon),el("strong","",account));
+  const media = el("div","agenda-detail-media");
+  media.dataset.format = post.format;
+  const frame = el("div","agenda-detail-frame");
+  const count = el("span","agenda-detail-count");
+  count.setAttribute("aria-live","polite");
+  const covers = (post.media ?? sample?.media ?? []).filter(item =>
+    ["aurora","texturas"].includes(item) || item instanceof File);
+  if (!covers.length && ["aurora","texturas"].includes(post.cover)) covers.push(post.cover);
+  let slide = 0, mediaUrl;
+  function renderSlide() {
+    if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+    mediaUrl = undefined;
+    const cover = covers[slide];
+    if (cover) {
+      const video = cover instanceof File && cover.type.startsWith("video/");
+      const asset = el(video ? "video" : "img","");
+      if (video) {
+        asset.controls = true;
+        asset.playsInline = true;
+        asset.setAttribute("aria-label","Prévia de " + title.textContent);
+      } else asset.alt = "Prévia de " + title.textContent;
+      asset.src = cover instanceof File ? (mediaUrl = URL.createObjectURL(cover)) : "./" + cover + ".svg";
+      frame.replaceChildren(asset);
+    } else {
+      const placeholder = el("span","agenda-detail-placeholder","Prévia de mídia indisponível");
+      placeholder.insertAdjacentHTML("afterbegin",icon("image"));
+      frame.replaceChildren(placeholder);
+    }
+    count.textContent = (slide+1) + " / " + covers.length;
+  }
+  renderSlide();
+  media.append(frame);
+  if (post.format === "Carrossel" && covers.length > 1) {
+    for (const [step,label,symbol] of [[-1,"Mídia anterior","‹"],[1,"Próxima mídia","›"]]) {
+      const arrow = el("button","button agenda-detail-arrow",symbol);
+      arrow.type = "button";
+      arrow.dataset.step = step;
+      arrow.setAttribute("aria-label",label);
+      arrow.addEventListener("click",() => {
+        slide = (slide + step + covers.length) % covers.length;
+        renderSlide();
+      });
+      media.append(arrow);
+    }
+    media.append(count);
+  }
+  const actions = el("div","agenda-detail-icons");
+  actions.setAttribute("aria-hidden","true");
+  actions.innerHTML = ["heart","message-circle","send","bookmark"].map(icon).join("");
+  preview.append(header,media,actions,el("p","agenda-detail-excerpt",caption));
+
+  const details = el("div","agenda-detail-info");
+  const badges = el("div","agenda-detail-badges");
+  const statusTag = scheduledTag(status,{Publicado:"check",Agendado:"calendar",Falha:"circle-alert"}[status] ?? "clock","status");
+  statusTag.dataset.scheduleStatus = status;
+  badges.append(scheduledTag(post.clientName || "Cliente não informado","building","identity"),
+    scheduledTag(account,"brand-instagram","identity"),format,statusTag);
+  const rows = el("dl","agenda-detail-panel agenda-detail-rows");
+  function row(symbol,label,value) {
+    const item = el("div","");
+    const term = el("dt","",label);
+    term.insertAdjacentHTML("afterbegin",icon(symbol));
+    const description = el("dd","");
+    description.append(...(Array.isArray(value) ? value : [value]));
+    item.append(term,description);
+    rows.append(item);
+  }
+  row("calendar","Data",new Intl.DateTimeFormat("pt-BR",{timeZone:"UTC",dateStyle:"long"}).format(new Date(post.day+"T00:00:00Z")));
+  row("clock","Horário",post.time);
+  row("clock","Fuso horário","Horário de Brasília");
+  row("share-2","Destinos",destinations.length ? publicationNetworkBadges(destinations,icon) : "Não informados");
+  const copy = el("section","agenda-detail-panel agenda-detail-caption");
+  const captionTitle = el("h3","","Legenda");
+  captionTitle.insertAdjacentHTML("afterbegin",icon("posts"));
+  copy.append(captionTitle,el("p","",caption));
+  details.append(title,badges,rows,copy);
+  if (destinations.length) {
+    const history = el("section","agenda-detail-panel");
+    history.append(el("h3","",isDemo ? "Destinos demonstrativos" : "Detalhes dos destinos"));
+    const dateTime = new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,dateStyle:"short",timeStyle:"short"});
+    for (const destination of destinations) {
+      const published = Date.parse(destination.publishedAt);
+      const scheduled = Date.parse(destination.scheduledAt);
+      const timing = Number.isFinite(published) ? "Publicado em "+dateTime.format(published) :
+        Number.isFinite(scheduled) ? "Programado para "+dateTime.format(scheduled) : "";
+      history.append(el("p","",[destinationName(destination),destination.status,timing].filter(Boolean).join(" · ")));
+    }
+    details.append(history);
+  }
+  if (destinations.some(destination => destination.platform === "instagram")) {
+    const links = el("section","agenda-detail-panel");
+    const heading = el("h3","","Publicação no Instagram");
+    heading.insertAdjacentHTML("afterbegin",icon("external-link"));
+    links.append(heading,el("p","",isDemo ? "Link indisponível na demonstração." : "Link oficial indisponível."));
+    details.append(links);
+  }
+  $("dialog-content").replaceChildren(preview,details);
+  dialog.dataset.agendaDetail = "";
+  dialog.showModal();
+  dialog.scrollTop = 0;
+  dialog.addEventListener("close",() => {
+    if (mediaUrl) URL.revokeObjectURL(mediaUrl);
+    frame.replaceChildren();
+  },{once:true});
+}
+
 function openDialog(title, paragraphs) {
+  delete $("dialog").dataset.agendaDetail;
+  $("dialog").insertBefore($("dialog-title"),$("dialog-content"));
   $("dialog-title").textContent = title;
   $("dialog-content").replaceChildren(...paragraphs.map((text) => Object.assign(document.createElement("p"),{textContent:text})));
   $("dialog").showModal();
@@ -530,9 +746,18 @@ renderProfile();
 
 const filterPanel = $("filter-panel");
 const filterTrigger = $("filter-trigger");
+const agendaFilterTrigger = $("agenda-filter-trigger");
+const isAgendaRoute = () => location.hash === "#agenda";
+const currentFilterTrigger = () => isAgendaRoute() ? agendaFilterTrigger : filterTrigger;
 const filterForm = $("scope");
 const clientChoices = [{id:"all",name:"Todos os clientes"},...scopedClients];
 let accountChoices = [];
+const agendaAccountIcon = id => id === "all" ? "layers" : "instagram";
+function updateAccountSelection(id) {
+  $("account-selection").textContent = accountChoices.find(choice => choice.id === id).name;
+  const symbol = isAgendaRoute() ? agendaAccountIcon(id) : "users-round";
+  $("account-toggle").querySelector("use").setAttribute("href","#icon-"+symbol);
+}
 function renderScopeChoices(key, choices, selected) {
   $(key+"-options").replaceChildren(...choices.map(({id,name}) => {
     const label = document.createElement("label");
@@ -546,18 +771,21 @@ function renderScopeChoices(key, choices, selected) {
     label.title = name;
     const avatar = scheduleElement("span","account-fallback",id === "all" ? "" : name[0].toUpperCase());
     avatar.setAttribute("aria-hidden","true");
-    if (id === "all") avatar.innerHTML = icon("users-round");
+    if (key === "account" && isAgendaRoute()) avatar.innerHTML = icon(agendaAccountIcon(id));
+    else if (id === "all") avatar.innerHTML = icon("users-round");
     label.append(input,avatar,caption);
     return label;
   }));
-  $(key+"-selection").textContent = choices.find(({id}) => id === selected).name;
+  if (key === "account") updateAccountSelection(selected);
+  else $(key+"-selection").textContent = choices.find(({id}) => id === selected).name;
   $(key+"-search").value = "";
   $(key+"-search").dispatchEvent(new Event("input"));
 }
 function renderNetworks(client, account = "all") {
   $("network-field").hidden = client === "all";
-  accountChoices = [{id:"all",name:"Todas as redes"},...accountsFor(client)
-    .filter(() => client !== "all").map(({id,platform,name}) => ({id,name:platform+" — "+name}))];
+  accountChoices = [{id:"all",name:isAgendaRoute() ? "Todas as contas" : "Todas as redes"},...accountsFor(client)
+    .filter(({platform}) => client !== "all" && (!isAgendaRoute() || platform === "Instagram"))
+    .map(({id,platform,name}) => ({id,name:platform+" — "+name}))];
   renderScopeChoices("account",accountChoices,account);
   $("account-toggle").disabled = accountChoices.length === 1;
   $("network-empty").hidden = client === "all" || accountChoices.length > 1;
@@ -773,13 +1001,15 @@ $("calendar-days").addEventListener("click", (event) => {
   moveCalendar(day,true);
 });
 function placeFilterPanel() {
-  const anchor = filterTrigger.getBoundingClientRect();
-  filterPanel.style.setProperty("--filter-right", Math.max(12,innerWidth-anchor.right) + "px");
+  const anchor = currentFilterTrigger().getBoundingClientRect();
+  const right = isAgendaRoute() ? innerWidth-anchor.left-370 : innerWidth-anchor.right;
+  filterPanel.style.setProperty("--filter-right", Math.max(12,right) + "px");
   filterPanel.style.setProperty("--filter-top", Math.max(12,Math.min(anchor.bottom+8,innerHeight-180)) + "px");
 }
 filterPanel.addEventListener("beforetoggle", (event) => {
   if (event.newState !== "open") return;
-  $("agenda-filter-period-note").hidden = location.hash !== "#agenda";
+  $("analysis-period").hidden = isAgendaRoute();
+  $("network-legend").textContent = isAgendaRoute() ? "Contas do Instagram" : "Redes sociais conectadas";
   resetFilterDraft(appliedFilters);
   placeFilterPanel();
 });
@@ -795,7 +1025,7 @@ filterForm.addEventListener("change", (event) => {
     renderNetworks(event.target.value);
   }
   if (event.target.name === "account") {
-    $("account-selection").textContent = accountChoices.find(({id}) => id === event.target.value).name;
+    updateAccountSelection(event.target.value);
   }
   if (event.target.name === "period") {
     $("custom-dates").hidden = event.target.value !== "custom";
@@ -805,7 +1035,8 @@ filterForm.addEventListener("change", (event) => {
   }
   $("scope-error").hidden = true;
 });
-$("clear-filters").addEventListener("click", () => resetFilterDraft(defaultFilters));
+$("clear-filters").addEventListener("click", () => resetFilterDraft(isAgendaRoute() ?
+  {...appliedFilters,client:"all",account:"all"} : defaultFilters));
 filterForm.noValidate = true;
 filterForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -827,7 +1058,7 @@ filterForm.addEventListener("submit", (event) => {
   appliedFilters = draft;
   refresh();
   filterPanel.hidePopover();
-  filterTrigger.focus();
+  currentFilterTrigger().focus();
 });
 
 if (!isDemo) {
@@ -845,7 +1076,9 @@ document.addEventListener("click",(event) => {
   if (button.dataset.schedule) {
     const post = button.hasAttribute("data-agenda-event") ? agenda.find(button.dataset.schedule) :
       visibleSchedules.find(({occurrence}) => occurrence === button.dataset.schedule);
-    if (post) {
+    if (post && button.hasAttribute("data-agenda-event")) {
+      openAgendaDetail(post);
+    } else if (post) {
       const dateTime = new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,dateStyle:"short",timeStyle:"short"});
       const destinations = (post.destinations ?? []).map(destination => {
         const timestamp = Date.parse(destination.scheduledAt);
@@ -853,15 +1086,10 @@ document.addEventListener("click",(event) => {
           (destination.status ? " · "+destination.status : "");
       });
       openDialog(post.title || post.format + " sem título",[post.format+" · "+accountName(post.account),
-        post.clientName || "Cliente não informado","Status: "+post.status,
+        post.clientName || "Cliente não informado","Status: "+(button.hasAttribute("data-agenda-event") ? agendaPublicationStatus(post) : post.status),
         "Programado para "+post.day.split("-").reverse().join("/")+" às "+post.time+" · horário de Brasília",
         ...(isDemo && destinations.length ? ["Destinos demonstrativos"] : []),...destinations,
-        ...(post.caption ? ["Legenda: "+post.caption] : []),
-        ...(button.hasAttribute("data-agenda-event") ? ["Histórico de publicação indisponível nesta prévia."] : [])]);
-      if (button.hasAttribute("data-agenda-event")) {
-        const image = button.querySelector("img")?.cloneNode();
-        if (image) { image.className = "agenda-detail-cover"; $("dialog-content").prepend(image); }
-      }
+        ...(post.caption ? ["Legenda: "+post.caption] : [])]);
     }
   }
   if (button.dataset.post) {
@@ -892,20 +1120,31 @@ const composer = createComposer({isDemo,workspace:activeWorkspace?.id,today,now:
     agenda.viewDate(day);
   },
 });
-const agenda = createAgenda({today,timezone,isDemo,records:scheduleRecords,
+const agenda = createAgenda({referenceDate:today,timezone,isDemo,records:scheduleRecords,
   card:post => scheduledCard(post,true),
   openNew:(day,time) => composer({day,time,client:appliedFilters.client,account:appliedFilters.account}),
+});
+const renderBanners = createBannerManager({
+  icon,
+  installScrollIndicator,
+  workspace:activeWorkspace?.id,
+  accounts:[...scopedAccounts,...(isDemo ? demoBannerAccounts.filter(item=>item.workspace===activeWorkspace?.id) : [])],
+  clients:[...scopedClients,...(isDemo ? demoBannerClients.filter(item=>item.workspace===activeWorkspace?.id) : [])],
+  refresh,
+  getRange:()=>range(appliedFilters),
 });
 function updateNavigation() {
   const current=location.hash || "#overview-top";
   const route = current.slice(1);
   const main = document.querySelector(".workspace main");
-  main.dataset.operation = ["activities","agenda","attention"].includes(route) ? route : "";
+  main.dataset.operation = ["activities","agenda","attention","banners"].includes(route) ? route : "";
   $("overview-heading").hidden = route === "agenda";
   $("agenda-heading").hidden = route !== "agenda";
   $("overview-top").setAttribute("aria-labelledby",route === "agenda" ? "agenda-page-title" : "greeting");
   if (filterPanel.matches(":popover-open")) filterPanel.hidePopover();
+  agenda.setClockActive(route === "agenda");
   if (route === "agenda") agenda.render();
+  if (route === "banners") renderBanners();
   if (main.dataset.operation || route === "overview-top") contentViewport.scrollTo({top:0,behavior:"instant"});
   else $(route)?.scrollIntoView();
   document.querySelectorAll(".side-nav a,.sidebar-footer a").forEach((link) => {
@@ -994,6 +1233,13 @@ function installScrollIndicator(viewport, surface, content, fade = false) {
   const mutations = new MutationObserver(queueMeasure);
   mutations.observe(viewport,{childList:true,subtree:true});
   measure();
+  return () => {
+    observer.disconnect();
+    mutations.disconnect();
+    cancelAnimationFrame(frame);
+    clearTimeout(timeout);
+    viewport.removeEventListener("scroll",show);
+  };
 }
 
 installScrollIndicator(contentViewport,contentViewport.parentElement,$("content"),true);

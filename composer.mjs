@@ -22,6 +22,106 @@ const selected = (a,b) => a===b ? " selected" : "";
 const validDate = day => /^\d{4}-\d\d-\d\d$/.test(day) && Number.isFinite(Date.parse(day)) && new Date(day).toISOString().slice(0,10)===day;
 const humanDate = day => new Intl.DateTimeFormat("pt-BR",{dateStyle:"long",timeZone:"UTC"}).format(new Date(day+"T12:00:00Z"));
 
+export function composerDropdowns(modal,body,icon) {
+  let active;
+  function close(restore=false) {
+    if (!active) return;
+    const {trigger,panel}=active;
+    active=null;
+    if (panel.matches(":popover-open")) panel.hidePopover();
+    trigger.setAttribute("aria-expanded","false");
+    if (restore) trigger.focus({preventScroll:true});
+  }
+  function place() {
+    if(!active) return;
+    const {trigger,panel}=active, rect=trigger.getBoundingClientRect();
+    const {clientHeight:h,clientWidth:w}=document.documentElement;
+    const below=h-rect.bottom-12, above=rect.top-12;
+    const up=below<Math.min(panel.scrollHeight+2,280)&&above>below;
+    panel.style.width=Math.min(rect.width,w-16)+"px";
+    panel.style.maxHeight=Math.max(36,Math.min(280,up?above:below))+"px";
+    panel.style.left=Math.max(8,Math.min(rect.left,w-panel.offsetWidth-8))+"px";
+    panel.style.top=(up?rect.top-panel.offsetHeight-4:rect.bottom+4)+"px";
+  }
+  modal.addEventListener("keydown",event=>{
+    if (!active) return;
+    if(event.key==="Escape") {event.preventDefault();event.stopPropagation();close(true);}
+    if(event.key==="Tab") close(true);
+  },true);
+  document.addEventListener("pointerdown",event=>{
+    if(active&&!active.trigger.contains(event.target)&&!active.panel.contains(event.target)) close();
+  },true);
+  body.addEventListener("scroll",()=>close(),{passive:true});
+  window.addEventListener("resize",place);
+  modal.addEventListener("close",()=>close());
+  return {
+    close,
+    enhance() {
+      for(const source of body.querySelectorAll("select[data-field]")) {
+        const field=source.dataset.field;
+        const label=source.getAttribute("aria-label")??source.labels[0]?.firstChild.textContent.trim()??field;
+        const trigger=document.createElement("button");
+        trigger.type="button";trigger.className="composer-select";
+        trigger.dataset.dropdown=field;trigger.disabled=source.disabled;
+        trigger.setAttribute("aria-label",label);
+        trigger.setAttribute("aria-describedby","composer-value-"+field);
+        trigger.setAttribute("aria-haspopup","listbox");trigger.setAttribute("aria-expanded","false");
+        const panel=document.createElement("div");
+        panel.className="composer-select-panel scroll-region";panel.id="composer-select-"+field;
+        panel.setAttribute("popover","manual");panel.setAttribute("role","listbox");panel.setAttribute("aria-label",label);
+        trigger.setAttribute("aria-controls",panel.id);
+        source.hidden=true;
+        source.after(trigger,panel);
+        function sync() {
+          trigger.innerHTML='<span id="composer-value-'+field+'">'+escape(source.selectedOptions[0]?.textContent)+"</span>"+icon("chevron-down");
+          for (const option of panel.children) option.setAttribute("aria-selected",String(option.dataset.value===source.value));
+        }
+        for(const item of source.options) {
+          const option=document.createElement("button");
+          option.type="button";option.tabIndex=-1;option.dataset.value=item.value;option.disabled=item.disabled;
+          option.setAttribute("role","option");
+          option.innerHTML="<span>"+escape(item.textContent)+"</span>"+icon("check");
+          option.addEventListener("click",()=>{
+            close(true);
+            if(source.value!==item.value) {
+              source.value=item.value;sync();source.dispatchEvent(new Event("change",{bubbles:true}));
+            }
+          });
+          panel.append(option);
+        }
+        sync();
+        function open(last=false) {
+          close();active={trigger,panel};panel.showPopover();place();
+          trigger.setAttribute("aria-expanded","true");
+          const options=[...panel.querySelectorAll("button:not(:disabled)")];
+          const option=last?options.at(-1):options.find(item=>item.getAttribute("aria-selected")==="true")??options[0];
+          option?.focus({preventScroll:true});
+          if(option) panel.scrollTop=Math.max(0,option.offsetTop-panel.clientHeight/2);
+        }
+        trigger.addEventListener("click",()=>active?.trigger===trigger?close(true):open());
+        trigger.addEventListener("keydown",event=>{
+          if(["ArrowDown","ArrowUp"].includes(event.key)) {event.preventDefault();open(event.key==="ArrowUp");}
+        });
+        panel.addEventListener("keydown",event=>{
+          if(!["ArrowDown","ArrowUp","Home","End"].includes(event.key)) return;
+          event.preventDefault();
+          const options=[...panel.querySelectorAll("button:not(:disabled)")];
+          const index=options.indexOf(document.activeElement);
+          const next=event.key==="Home"?0:event.key==="End"?options.length-1:
+            (index+(event.key==="ArrowDown"?1:-1)+options.length)%options.length;
+          const option=options[next];
+          option?.focus({preventScroll:true});
+          if(option) {
+            const row=option.getBoundingClientRect(), list=panel.getBoundingClientRect();
+            if(row.top<list.top) panel.scrollTop-=list.top-row.top;
+            else if(row.bottom>list.bottom) panel.scrollTop+=row.bottom-list.bottom;
+          }
+        });
+      }
+    },
+  };
+}
+
 // Match the requested wall time to one unambiguous UTC instant, including DST transitions.
 export function scheduledInstant(day,time,zone) {
   if (!validDate(day) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
@@ -59,6 +159,7 @@ async function draftStorage(key,action,value) {
 export function createComposer({isDemo,workspace,today,now,timezone,clients,accountsFor,icon,onSchedule,onView}) {
   const modal = document.getElementById("composer");
   const body = modal.querySelector(".composer-body");
+  const dropdowns=composerDropdowns(modal,body,icon);
   const progress = modal.querySelector(".composer-progress");
   const subtitle = modal.querySelector("#composer-subtitle");
   const feedback = modal.querySelector(".composer-feedback");
@@ -156,11 +257,44 @@ export function createComposer({isDemo,workspace,today,now,timezone,clients,acco
   function preview() {
     const index=Math.min(previewIndex,state.media.length-1);
     const file = state.media[index];
-    return '<aside class="composer-preview"><p class="composer-label">PRÉVIA · '+escape(format()?.name)+'</p><div class="composer-preview-card"><header>'+brand("instagram")+'<strong>'+escape(account()?.name)+'</strong></header>'+
-      '<div class="composer-preview-media" data-format="'+escape(state.format)+'">'+(!file?'<span>Adicione uma mídia para visualizar</span>':
+    const profile=account()?.name??"";
+    return '<aside class="composer-preview" data-format="'+escape(state.format)+'"><p class="composer-label">PRÉVIA · '+escape(format()?.name)+'</p><div class="composer-preview-card"><header><span class="composer-preview-avatar" aria-hidden="true">'+escape(profile.replace(/^@/,"").slice(0,1).toUpperCase())+'</span><strong>'+escape(profile)+'</strong>'+brand("instagram")+'</header>'+
+      '<div class="composer-preview-media" data-empty="'+!file+'">'+(!file?'<span>'+icon("image")+'<br>Adicione uma mídia para visualizar</span>':
       file.type.startsWith("video/")?'<video controls playsinline preload="metadata" src="'+url(file)+'"></video>':'<img alt="Prévia da mídia '+(index+1)+'" src="'+url(file)+'">')+
+      '<span class="composer-preview-error" role="status" hidden>Não foi possível visualizar este arquivo. Verifique a mídia ou escolha outro arquivo.</span>'+
       '</div>'+(state.media.length>1?'<div class="composer-preview-nav"><button class="button" data-preview="-1" aria-label="Mídia anterior">‹</button><span>'+(index+1)+' / '+state.media.length+'</span><button class="button" data-preview="1" aria-label="Próxima mídia">›</button></div>':"")+
-      '<p class="composer-preview-caption">'+escape(state.caption || "A legenda aparecerá aqui.")+'</p></div></aside>';
+      (state.format==="story"?"":'<div class="composer-preview-actions" aria-hidden="true">'+icon("heart")+icon("message-circle")+icon("send")+icon("bookmark")+'</div>')+
+      '<div class="composer-preview-copy"><p id="composer-preview-caption" class="composer-preview-caption">'+escape(state.caption || "Sem legenda")+'</p><button type="button" class="composer-caption-toggle" data-composer-action="caption" aria-controls="composer-preview-caption" aria-expanded="false" hidden>mais</button></div></div><p class="muted composer-preview-note">Prévia local · Enquadramento original, sem recorte.</p></aside>';
+  }
+  let captionObserver;
+  function measureCaption() {
+    const caption=body.querySelector(".composer-preview-caption");
+    if (!caption) return;
+    const toggle=body.querySelector(".composer-caption-toggle");
+    const lineHeight=parseFloat(getComputedStyle(caption).lineHeight);
+    const expanded=toggle.getAttribute("aria-expanded")==="true";
+    toggle.hidden=!(caption.scrollHeight>Math.ceil(lineHeight*3));
+    if(toggle.hidden&&expanded) {
+      toggle.setAttribute("aria-expanded","false");
+      toggle.textContent="mais";
+      caption.classList.remove("expanded");
+    }
+  }
+  function setupPreview() {
+    captionObserver?.disconnect();
+    const caption=body.querySelector(".composer-preview-caption");
+    if(!caption) return;
+    captionObserver=new ResizeObserver(measureCaption);
+    captionObserver.observe(caption);
+    const media=body.querySelector(".composer-preview-media :is(img,video)");
+    if(media) {
+      const showError=()=>{
+        media.hidden=true;
+        body.querySelector(".composer-preview-error").hidden=false;
+      };
+      media.addEventListener("error",showError,{once:true});
+      if(media.error || (media.tagName==="IMG" && media.complete && !media.naturalWidth)) showError();
+    }
   }
   function editor() {
     const f=format();
@@ -200,6 +334,7 @@ export function createComposer({isDemo,workspace,today,now,timezone,clients,acco
       '</dl>'+preview()+'</div><p class="composer-label">Somente demonstração. Nenhuma mídia ou publicação será enviada ao Instagram.</p>';
   }
   function render(focus=true) {
+    dropdowns.close();
     modal.dataset.step=String(stage+1);
     subtitle.textContent=result?"Demonstração":'Etapa '+(stage+1)+' de 6 · '+steps[stage][0];
     progress.innerHTML=steps.map(([label],i)=>'<button class="composer-segment" data-stage="'+i+'" aria-label="Etapa '+(i+1)+': '+label+'"'+(i===stage?' aria-current="step"':"")+(i>=stage||result?" disabled":"")+' data-complete="'+(i<stage)+'"></button>').join("");
@@ -213,6 +348,8 @@ export function createComposer({isDemo,workspace,today,now,timezone,clients,acco
         (result==="schedule"?'<button class="button composer-primary" data-composer-action="view">Ver na Agenda</button> ':"")+
         '<button class="button" data-composer-action="close">Fechar</button>';
     } else body.innerHTML=heading()+[network,destination,editorial,editor,schedule,review][stage]();
+    dropdowns.enhance();
+    setupPreview();
     body.scrollTop=0;
     if (focus) body.querySelector(".composer-question")?.focus({preventScroll:true});
   }
@@ -253,7 +390,7 @@ export function createComposer({isDemo,workspace,today,now,timezone,clients,acco
         const scheduledAt=scheduledInstant(state.day,state.time,timezone);
         const occurrence="composer-"+state.id;
         onSchedule({id:occurrence,occurrence,account:account().id,title:state.title.trim()||format().name+" sem título",caption:state.caption,
-          clientName:client().name,format:format().record,status:"Agendado",scheduledAt,
+          clientName:client().name,format:format().record,status:"Agendado",scheduledAt,media:[...state.media],
           destinations:[{platform:state.platform,scheduledAt,status:"Agendado"}]});
         // The fixture is already visible in this session. Draft cleanup is best effort.
         await saving.catch(()=>{});
@@ -281,6 +418,7 @@ export function createComposer({isDemo,workspace,today,now,timezone,clients,acco
   }
   modal.addEventListener("cancel",event=>{event.preventDefault();close();});
   modal.addEventListener("close",()=>{
+    captionObserver?.disconnect();
     session++;
     clearTimeout(timer);
     clearUrls();
@@ -326,7 +464,14 @@ export function createComposer({isDemo,workspace,today,now,timezone,clients,acco
     if(button.dataset.preview && state.media.length>1) {
       previewIndex=(previewIndex+Number(button.dataset.preview)+state.media.length)%state.media.length;
       body.querySelector(".composer-preview").outerHTML=preview();
+      setupPreview();
       body.querySelector('[data-preview="'+button.dataset.preview+'"]').focus();
+    }
+    if(action==="caption") {
+      const expanded=button.getAttribute("aria-expanded")!=="true";
+      button.setAttribute("aria-expanded",String(expanded));
+      button.textContent=expanded?"menos":"mais";
+      body.querySelector(".composer-preview-caption").classList.toggle("expanded",expanded);
     }
     if(target!==undefined && Number(target)<stage && Number(target)<=furthest) go(Number(target));
     if(platformChoice==="instagram" && isDemo) {state.platform=platformChoice;change();render(false);body.querySelector('[data-platform-choice="instagram"]').focus();}
@@ -348,12 +493,12 @@ export function createComposer({isDemo,workspace,today,now,timezone,clients,acco
     if (input.type==="file") {addFiles(input.files);input.value="";return;}
     const field=input.dataset.field;
     if (field==="client") {
-      state.client=input.value;state.account="";change();render(false);body.querySelector('[data-field="client"]').focus();
+      state.client=input.value;state.account="";change();render(false);body.querySelector('[data-dropdown="client"]').focus();
     } else if (field==="account") {
-      state.account=input.value;change();render(false);body.querySelector('[data-field="account"]').focus();
+      state.account=input.value;change();render(false);body.querySelector('[data-dropdown="account"]').focus();
     } else if (field==="month"||field==="year") {
       month=field==="month"?month.slice(0,5)+input.value:input.value+month.slice(4);
-      render(false);body.querySelector('[data-field="'+field+'"]').focus();
+      render(false);body.querySelector('[data-dropdown="'+field+'"]').focus();
     } else if (field==="category"||field==="time") {state[field]=input.value;change();}
   });
   body.addEventListener("input",event=>{
@@ -361,7 +506,8 @@ export function createComposer({isDemo,workspace,today,now,timezone,clients,acco
     if (field!=="caption"&&field!=="title") return;
     state[field]=event.target.value;
     if(field==="caption") {
-      body.querySelector(".composer-preview-caption").textContent=state.caption||"A legenda aparecerá aqui.";
+      body.querySelector(".composer-preview-caption").textContent=state.caption||"Sem legenda";
+      measureCaption();
       body.querySelector("#composer-caption-count").textContent=state.caption.length+" / 2.200";
     }
     change();

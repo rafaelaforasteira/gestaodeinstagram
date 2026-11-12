@@ -8,6 +8,8 @@ const files = {
   "/fonts/GeistMono-Variable.woff2": ["fonts/GeistMono-Variable.woff2", "font/woff2"],
   "/dashboard.mjs": ["dashboard.mjs", "text/javascript"],
   "/widget-help.mjs": ["widget-help.mjs", "text/javascript"],
+  "/banner-date-picker.mjs": ["banner-date-picker.mjs", "text/javascript"],
+  "/banners.mjs": ["banners.mjs", "text/javascript"],
   "/agenda.mjs": ["agenda.mjs", "text/javascript"],
   "/composer.mjs": ["composer.mjs", "text/javascript"],
   "/editorial.mjs": ["editorial.mjs", "text/javascript"],

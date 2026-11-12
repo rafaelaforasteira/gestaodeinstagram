@@ -11,6 +11,8 @@ A ação **Nova publicação** da Agenda abre um diálogo compartilhado. No modo
 
 O modal usa Geist, tokens do Social Studio, seis segmentos de progresso, largura adaptativa e uma única região de rolagem. A navegação conserva os campos, restaura foco ao fechar e respeita movimento reduzido. O navegador guarda um rascunho de demonstração por workspace no IndexedDB, incluindo os arquivos, e permite retomada ou descarte. O agendamento de teste existe apenas na sessão da Agenda e na mesma fonte em memória do widget Posts programados; nenhum worker, upload, evento de publicação ou dado de analytics é acionado.
 
+Cliente, conta, categoria, mês e ano usam o mesmo menu flutuante. A lista abre acima ou abaixo conforme o espaço, e Escape fecha primeiro o menu. A prévia preserva a proporção original do arquivo, sem aplicar recorte que não será enviado. A legenda ocupa até três linhas até ser expandida; a navegação do carrossel segue a ordem real das mídias.
+
 Para produção, habilite apenas as capacidades confirmadas pelo adaptador Meta versionado. Valide sessão, workspace, papel, destino e mídia no servidor antes de cada mutação. Use armazenamento privado, processamento de mídia, idempotência e fila durável. Preserve o rascunho em erros e informe sucesso apenas após confirmação persistida. Publicar agora, biblioteca remota, capas e opções avançadas não estão disponíveis nesta prévia.
 
 Validação local: `npm run test:composer`. Esta página também prepara a seção para o documento mestre remoto.
