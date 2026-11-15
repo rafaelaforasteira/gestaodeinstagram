@@ -536,14 +536,6 @@ function renderScheduledPosts(data) {
 function refresh() {
   const selected = range(appliedFilters);
   const data = getData(selected.start,selected.end);
-  $("context-client").textContent = scopedClients.find(({id}) => id === appliedFilters.client)?.name ?? "Todos os clientes";
-  $("context-account").textContent = data.accounts.find(({id}) => id === appliedFilters.account)?.name ??
-    (data.accounts.length ? "Todas as contas · " + data.accounts.length : "Nenhuma conta conectada");
-  const contextDate = new Intl.DateTimeFormat("pt-BR", {dateStyle:"short",timeZone:"UTC"});
-  const displayDate = day => contextDate.format(new Date(day + "T12:00:00Z"));
-  $("context-period").textContent = selected.start === selected.end ? displayDate(selected.start) :
-    displayDate(selected.start) + " a " + displayDate(selected.end);
-  $("context-source").textContent = isDemo ? "Demonstração · dados fictícios" : "Sem fonte conectada";
   activity = data.activity;
   page = 1;
   renderAnalytics(data);
@@ -1071,6 +1063,10 @@ filterForm.addEventListener("submit", (event) => {
 
 if (!isDemo) {
   $("summary").textContent="Conecte uma fonte autorizada para acompanhar resultados e atividades.";
+} else {
+  // A demonstração precisa continuar identificada (spec: Visão Geral §3 e §15).
+  $("demo-note").textContent = "Dados fictícios · Data-base " + formatDate(demo.today) + "/" + demo.today.slice(0,4) + " · Horário de Brasília";
+  $("demo-note").hidden = false;
 }
 theme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
 $("appearance").addEventListener("click", () => theme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
