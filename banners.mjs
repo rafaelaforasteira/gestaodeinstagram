@@ -28,6 +28,8 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
   const scope = new Map(accounts.map(account => [account.id,account]));
   const clientName = id => clients.find(item => item.id === scope.get(id)?.client)?.name ?? "";
   const scoped = () => demoBioBanners.filter(item => scope.has(item.account));
+  // Só banners no ar ou programados ocupam posição no Link Bio; inativos ficam fora da ordem.
+  const inOrder = item => item.state!=="archived" && bannerStatus(item,clock())!=="inactive";
   const sorted = () => scoped().sort((a,b) => (a.order ?? 0)-(b.order ?? 0));
   const create = (tag,text) => Object.assign(document.createElement(tag),{textContent:text ?? ""});
   const action = (label,fn) => {
@@ -121,10 +123,10 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
     dropdowns.close();
     const account = field("account").value;
     const clientId = scope.get(account)?.client;
-    const siblings = sorted().filter(item => item.state!=="archived" &&
+    const siblings = sorted().filter(item => inOrder(item) &&
       scope.get(item.account)?.client===clientId && item.id!==editing?.id);
-    const selected = editing && scope.get(editing.account)?.client===clientId ?
-      sorted().filter(item=>item.state!=="archived" && scope.get(item.account)?.client===clientId).findIndex(item=>item.id===editing.id)+1 : siblings.length+1;
+    const selected = editing && scope.get(editing.account)?.client===clientId && inOrder(editing) ?
+      sorted().filter(item=>inOrder(item) && scope.get(item.account)?.client===clientId).findIndex(item=>item.id===editing.id)+1 : siblings.length+1;
     const label = create("label","Posição do banner *");
     const source = create("select");
     source.name = "position";
@@ -267,7 +269,8 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
     if (error.textContent || [...form.querySelectorAll("[data-error]")].some(target=>target.textContent)) return;
     const items = sorted().filter(item => item.id !== editing?.id);
     const clientId = scope.get(account).client;
-    const siblings = items.filter(item => item.state!=="archived" && scope.get(item.account).client===clientId);
+    const siblings = items.filter(item => inOrder(item) && scope.get(item.account).client===clientId);
+    const outOfOrder = items.filter(item => item.state!=="archived" && !inOrder(item) && scope.get(item.account).client===clientId);
     const position = Number(field("position").value);
     if (!Number.isInteger(position) || position<1 || position>siblings.length+1) {
       error.textContent = "Escolha uma posição válida para o banner.";
@@ -276,7 +279,7 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
     const banner = {...editing,...initialDetails,id:editing?.id ?? crypto.randomUUID(),account,name,title:name,url,image,startsAt,endsAt,
       cover,state:initialState};
     siblings.splice(position-1,0,banner);
-    const orderById = new Map(siblings.map((item,index)=>[item.id,index]));
+    const orderById = new Map([...siblings,...outOfOrder].map((item,index)=>[item.id,index]));
     const reordered = [...items,banner].map(item=>orderById.has(item.id) ? {...item,order:orderById.get(item.id)} : item);
     if (commit(reordered)) { dialog.close(); message("Banner salvo na demonstração."); }
     else if (!error.textContent) error.textContent = "Não foi possível salvar o banner neste navegador.";
@@ -330,16 +333,21 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
     const layout = el("div","bm-layout");
     const listSection = el("section","bm-list");
     listSection.setAttribute("aria-label","Banners de "+client.name);
+    const ordered = siblings.filter(banner=>statusOf(banner)!=="inactive");
+    const inactive = siblings.filter(banner=>statusOf(banner)==="inactive");
     const visible = managerFilter ? siblings.filter(banner=>statusOf(banner)===managerFilter) : siblings;
-    if (siblings.length>1) {
-      const hint = withIcon(el("p","bm-hint","Arraste para mudar a ordem. A ordem aqui é a mesma do Link Bio."),"grip-vertical");
+    if (ordered.length>1 && managerFilter!=="inactive") {
+      const hint = withIcon(el("p","bm-hint","Arraste para mudar a ordem. Banners inativos saem da ordem e descem automaticamente."),"grip-vertical");
       listSection.append(hint);
     }
     if (!visible.length) {
       listSection.append(el("p","bm-empty",siblings.length ? "Nenhum banner com este status." :
         "Nenhum banner cadastrado. Use Novo banner para criar o primeiro."));
     }
-    const list = el("ol","bm-rows");
+    const groups = [
+      {key:"ordered",title:"Na ordem do Link Bio",note:"No ar e programados",rows:ordered.filter(item=>visible.includes(item)),tag:"ol"},
+      {key:"inactive",title:"Inativos",note:"Fora do Link Bio · ative para voltar à ordem",rows:inactive.filter(item=>visible.includes(item)),tag:"ul"},
+    ].filter(group=>group.rows.length);
     const statusChip = status => {
       const [label,symbol] = {live:["No ar","circle-check"],scheduled:["Programado","calendar-clock"],
         inactive:["Inativo","circle-pause"]}[status] ?? ["Indisponível","circle-alert"];
@@ -347,12 +355,23 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
       chip.dataset.status = status ?? "";
       return chip;
     };
-    for (const banner of visible) {
-      const position = siblings.indexOf(banner);
+    for (const group of groups) {
+    const groupSection = el("section","bm-group");
+    groupSection.dataset.group = group.key;
+    const groupHead = el("div","bm-group-head");
+    const groupTitle = el("h3","",group.title);
+    groupTitle.id = "bm-group-"+group.key;
+    groupHead.append(groupTitle,el("span","bm-count",String(group.rows.length)),el("span","bm-group-note",group.note));
+    const list = el(group.tag,"bm-rows");
+    list.setAttribute("aria-labelledby",groupTitle.id);
+    groupSection.append(groupHead,list);
+    for (const banner of group.rows) {
+      const inLine = group.key==="ordered";
+      const position = ordered.indexOf(banner);
       const status = statusOf(banner);
       const row = el("li","bm-row");
       row.dataset.status = status ?? "";
-      row.draggable = true;
+      row.draggable = inLine;
       row.addEventListener("dragstart",event=>{
         dragged = banner;
         event.dataTransfer.setData("text/plain",banner.id);
@@ -361,16 +380,19 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
       });
       row.addEventListener("dragend",()=>{dragged=undefined;delete row.dataset.dragging;});
       row.addEventListener("dragover",event=>{
-        if (dragged && dragged!==banner && siblings.includes(dragged)) {event.preventDefault();row.dataset.dropTarget="";}
+        if (inLine && dragged && dragged!==banner && ordered.includes(dragged)) {event.preventDefault();row.dataset.dropTarget="";}
       });
       row.addEventListener("dragleave",()=>delete row.dataset.dropTarget);
-      row.addEventListener("drop",event=>{event.preventDefault();delete row.dataset.dropTarget;move(dragged,banner);});
+      row.addEventListener("drop",event=>{
+        event.preventDefault();delete row.dataset.dropTarget;
+        if (inLine && ordered.includes(dragged)) move(dragged,banner);
+      });
 
       const grip = el("span","bm-grip");
       grip.innerHTML = icon("grip-vertical");
       grip.setAttribute("aria-hidden","true");
-      const order = el("span","bm-position",String(position+1));
-      order.setAttribute("aria-label","Posição "+(position+1));
+      const order = el("span","bm-position",inLine ? String(position+1) : "–");
+      order.setAttribute("aria-label",inLine ? "Posição "+(position+1)+" no Link Bio" : "Fora da ordem do Link Bio");
       const thumb = el("span","bm-thumb");
       thumb.append(picture(banner));
 
@@ -452,7 +474,7 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
           entry.addEventListener("click",()=>{menu.hidePopover();fn();});
           return entry;
         };
-        const previous = siblings[position-1], next = siblings[position+1];
+        const previous = inLine ? ordered[position-1] : undefined, next = inLine ? ordered[position+1] : undefined;
         menu.append(
           item("Visualizar","eye",()=>{
             const target = document.querySelector("#banner-view");
@@ -467,8 +489,10 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
             try {await navigator.clipboard.writeText(url); message("Link copiado.");}
             catch {message("Não foi possível copiar o link.");}
           },false,!url),
-          item("Mover para cima","arrow-up",()=>{pendingFocus="more:"+banner.id;move(banner,previous);},false,!previous),
-          item("Mover para baixo","arrow-down",()=>{pendingFocus="more:"+banner.id;move(banner,next);},false,!next),
+          ...(inLine ? [
+            item("Mover para cima","arrow-up",()=>{pendingFocus="more:"+banner.id;move(banner,previous);},false,!previous),
+            item("Mover para baixo","arrow-down",()=>{pendingFocus="more:"+banner.id;move(banner,next);},false,!next),
+          ] : []),
           el("hr","bm-menu-divider"),
           item("Arquivar","archive",()=>{confirmingArchive=banner.id;pendingFocus="cancel:"+banner.id;render();},true),
         );
@@ -497,7 +521,8 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
       row.append(grip,order,thumb,info,controls);
       list.append(row);
     }
-    listSection.append(list);
+    listSection.append(groupSection);
+    }
 
     // Prévia ao vivo: só banners no ar, na ordem da lista
     const preview = el("aside","bm-preview");
@@ -554,7 +579,9 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
     }
     for (const client of clients) {
       const siblings = active.filter(item=>scope.get(item.account).client===client.id);
-      const visible = selected.filter(item=>scope.get(item.account).client===client.id);
+      const lineUp = siblings.filter(item=>bannerStatus(item,now)!=="inactive");
+      const visible = selected.filter(item=>scope.get(item.account).client===client.id)
+        .sort((a,b)=>Number(!lineUp.includes(a))-Number(!lineUp.includes(b)));
       const panel = create("section");
       panel.className = "card banner-client";
       const header = create("header");
@@ -594,7 +621,7 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
         const copy = create("div");
         const heading = create("div");
         heading.className = "banner-preview-heading";
-        const name = create("h3",(siblings.indexOf(banner)+1)+". "+banner.name);
+        const name = create("h3",(lineUp.includes(banner) ? (lineUp.indexOf(banner)+1)+". " : "")+banner.name);
         name.title = banner.name;
         name.tabIndex = 0;
         const badge = create("span",statuses[bannerStatus(banner,now)] ?? "Indisponível");
