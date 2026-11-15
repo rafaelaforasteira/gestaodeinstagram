@@ -159,7 +159,13 @@
         </form>
       </div>
       <p id="scope-status" class="sr-only" role="status"></p>
+      <div class="dashboard-context" aria-label="Contexto dos dados exibidos">
+        <dl><div><dt>Cliente</dt><dd id="context-client"></dd></div><div><dt>Conta</dt><dd id="context-account"></dd></div><div><dt>Período · Brasília</dt><dd id="context-period"></dd></div><div><dt>Fonte</dt><dd id="context-source"></dd></div></dl>
+        <a class="button" href="#activities">Ver atividades <svg aria-hidden="true"><use href="#icon-arrow"/></svg></a>
+      </div>
+      <div class="dashboard-section-heading"><h2>Indicadores de resultado</h2><p class="muted">Alcance, visualizações, engajados e seguidores das contas selecionadas.</p></div>
       <section class="metric-grid" aria-label="Indicadores do Instagram" id="metrics"></section>
+      <div class="dashboard-section-heading"><h2>Rotina editorial</h2><p class="muted">Programação e frequência de publicação.</p></div>
       <div class="top-grid">
         <section class="card scheduled-widget" aria-labelledby="scheduled-title">
           <header><h2 id="scheduled-title"><svg aria-hidden="true"><use href="#icon-calendar"/></svg>Posts programados</h2><p class="muted">Acompanhe as publicações do período selecionado.</p></header>
@@ -173,6 +179,7 @@
         </section>
       </div>
       <div class="editorial-analysis" id="editorial">
+        <div class="dashboard-section-heading"><h2>Análise de conteúdo</h2><p class="muted">Destaques, comparação entre formatos e resultados do Link Bio.</p></div>
         <aside class="editorial-alert" id="editorial-alert" hidden><a href="#attention">Revisar falhas de publicação</a></aside>
         <div class="editorial-primary"><section class="card editorial-card" aria-labelledby="featured-title"><header><h2 id="featured-title"><svg aria-hidden="true"><use href="#icon-media"/></svg>Conteúdos em destaque</h2><p class="muted">Top 3 por alcance · Publicações do período · Métricas acumuladas.</p></header><div id="featured"></div></section><section class="card editorial-card" id="formats-card" aria-labelledby="formats-title"><header><h2 id="formats-title"><svg aria-hidden="true"><use href="#icon-chart"/></svg>Desempenho por formato</h2><p class="muted">Compare a performance dos formatos com o período anterior.</p></header><div id="formats"></div></section></div>
         <div class="bio-grid">

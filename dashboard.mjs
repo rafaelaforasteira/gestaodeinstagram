@@ -536,6 +536,14 @@ function renderScheduledPosts(data) {
 function refresh() {
   const selected = range(appliedFilters);
   const data = getData(selected.start,selected.end);
+  $("context-client").textContent = scopedClients.find(({id}) => id === appliedFilters.client)?.name ?? "Todos os clientes";
+  $("context-account").textContent = data.accounts.find(({id}) => id === appliedFilters.account)?.name ??
+    (data.accounts.length ? "Todas as contas · " + data.accounts.length : "Nenhuma conta conectada");
+  const contextDate = new Intl.DateTimeFormat("pt-BR", {dateStyle:"short",timeZone:"UTC"});
+  const displayDate = day => contextDate.format(new Date(day + "T12:00:00Z"));
+  $("context-period").textContent = selected.start === selected.end ? displayDate(selected.start) :
+    displayDate(selected.start) + " a " + displayDate(selected.end);
+  $("context-source").textContent = isDemo ? "Demonstração · dados fictícios" : "Sem fonte conectada";
   activity = data.activity;
   page = 1;
   renderAnalytics(data);

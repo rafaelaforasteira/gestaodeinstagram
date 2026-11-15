@@ -231,6 +231,16 @@ th{font-size:inherit}
 .heat-cell:focus-visible{outline-offset:1px}
 .heat-tooltip{position:fixed;inset:auto;margin:0;max-width:min(270px,calc(100vw - 16px));padding:9px 11px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);box-shadow:0 6px 20px #0003;font-size:12px;pointer-events:none}
 .metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:var(--gap)}
+.dashboard-context{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;margin-bottom:var(--gap);border:1px solid var(--border);border-radius:var(--radius);background:var(--card);min-width:0}
+.dashboard-context dl{display:flex;flex-wrap:wrap;gap:12px 28px;margin:0;min-width:0}
+.dashboard-context dl>div{min-width:0}
+.dashboard-context dt{font-size:var(--text-caption);color:var(--muted);margin-bottom:3px}
+.dashboard-context dd{margin:0;font-size:var(--text-label);font-weight:500;overflow-wrap:anywhere}
+.dashboard-context .button{flex-shrink:0}
+.dashboard-section-heading{margin:0 0 12px;min-width:0}
+.dashboard-section-heading h2{font-size:var(--text-section);font-weight:600}
+.dashboard-section-heading p{font-size:var(--text-label);margin-top:4px}
+@container workspace (max-width:650px){.dashboard-context{align-items:stretch;flex-direction:column}.dashboard-context dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.dashboard-context .button{align-self:flex-start}}
 .metric{
   --kpi-ink:#281710;
   padding:14px;min-width:0;min-height:116px;color:var(--kpi-ink);
@@ -722,7 +732,7 @@ button.agenda-hour-label:hover{color:var(--orange-ink)}
 @container workspace (min-width:1480px){th,td{padding-inline:12px}td[data-label="Data"]{white-space:nowrap}}
 @container workspace (min-width:2180px){
   .workspace main{display:grid;grid-template-columns:repeat(16,minmax(0,1fr));gap:var(--gap);align-content:start}
-  .intro,.scope-error,.editorial-analysis,.operational-pages{grid-column:1/-1;margin-bottom:0}
+  .intro,.scope-error,.editorial-analysis,.operational-pages,.dashboard-context,.dashboard-section-heading{grid-column:1/-1;margin-bottom:0}
   .top-grid{display:contents}
   .scheduled-widget{grid-column:1/9}
   .metric-grid{grid-column:1/-1;margin-bottom:0}
