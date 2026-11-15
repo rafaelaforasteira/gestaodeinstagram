@@ -27,7 +27,11 @@ let calendarMax = isDemo ? scheduleRecords.reduce((latest, post) => {
 const workspaces = isDemo ? demo.workspaces : [];
 let page = 1;
 let activity = [];
-const pageSize = 5;
+const pageSize = 8;
+let currentRange = {start:"",end:""};
+let lastAccounts = [];
+let attentionAlerts = [];
+let connectionEvents = [];
 const statusText = { Publicado:"Publicação realizada", Agendado:"Agendamento criado", Falha:"Falha no processamento", Rascunho:"Rascunho atualizado" };
 const accountName = (id) => demo.accounts.find((account) => account.id === id)?.name ?? "Conta indisponível";
 const activeWorkspace = workspaces.find(({id}) => id === query.get("workspace")) ?? workspaces[0];
@@ -297,15 +301,16 @@ function renderAttention(accounts) {
     for (const post of publications.values()) {
       const account = byAccount.get(post.account);
       if (!account || post.status !== "Falha") continue;
-      alerts.push({kind:"publication",title:"Falha na publicação",name:post.title,client:clientName(account.client),
-        account:account.name,at:post.scheduledAt ?? post.date+"T"+post.hour+":00-03:00",status:"Falha"});
+      const at = post.scheduledAt ?? post.date+"T"+post.hour+":00-03:00";
+      alerts.push({kind:"publication",key:"publication:"+post.account+":"+post.id+":"+at,title:"Falha na publicação",name:post.title,
+        format:post.format,client:clientName(account.client),account:account.name,at,status:"Falha"});
     }
     if (appliedFilters.account === "all") {
       for (const account of demo.accounts) {
         if (account.connected !== false || account.workspace !== activeWorkspace?.id || !clientName(account.client) ||
             (appliedFilters.client !== "all" && appliedFilters.client !== account.client)) continue;
-        alerts.push({kind:"connection",title:"Conta desconectada",name:account.name,client:clientName(account.client),
-          at:account.connectionChangedAt,status:"Desconectada"});
+        alerts.push({kind:"connection",key:"connection:"+account.id+":"+account.connectionChangedAt,title:"Conta desconectada",
+          name:account.name,client:clientName(account.client),account:account.name,at:account.connectionChangedAt,status:"Desconectada"});
       }
     }
     alerts.sort((a,b) => Number(a.kind==="connection")-Number(b.kind==="connection") ||
@@ -339,37 +344,224 @@ function renderAttention(accounts) {
     }
     root.append(list);
   }
-  fill($("agenda-alerts"),alerts.slice(0,3));
-  fill($("alerts"),alerts);
-  $("agenda-alert-count").textContent = alerts.length;
-  $("agenda-alert-count").hidden = !alerts.length;
-  $("agenda-alert-all").hidden = !alerts.length;
+  lastAccounts = accounts;
+  attentionAlerts = alerts;
+  connectionEvents = alerts.filter(alert => alert.kind === "connection");
+  // A Agenda mostra só os alertas ainda abertos; os resolvidos ficam na Central de atividades.
+  const open = alerts.filter(alert => !resolvedAlerts.has(alert.key));
+  fill($("agenda-alerts"),open.slice(0,3));
+  $("agenda-alert-count").textContent = open.length;
+  $("agenda-alert-count").hidden = !open.length;
+  $("agenda-alert-all").hidden = !open.length;
+  renderAttentionCenter();
 }
+
+// Central de atividades · coluna "Precisa de atenção"
+let attentionTab = "open";
+const resolvedKey = "studio-resolved-alerts-v1-" + (activeWorkspace?.id ?? "sem-workspace");
+let resolvedAlerts = new Set();
+try { resolvedAlerts = new Set(JSON.parse(localStorage.getItem(resolvedKey)) ?? []); }
+catch { /* Sem armazenamento: os alertas resolvidos valem só nesta sessão. */ }
+function saveResolved() {
+  try { localStorage.setItem(resolvedKey, JSON.stringify([...resolvedAlerts])); }
+  catch { /* Mantém o estado em memória. */ }
+}
+function relativeTime(at) {
+  const instant = Date.parse(at);
+  if (!Number.isFinite(instant)) return "";
+  const minutes = Math.round(((isDemo ? Date.parse(demo.now) : Date.now()) - instant) / 60000);
+  if (minutes < 0) return "";
+  if (minutes < 1) return "agora";
+  if (minutes < 60) return "há " + minutes + " min";
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return "há " + hours + " h";
+  const days = Math.round(hours / 24);
+  return "há " + days + (days === 1 ? " dia" : " dias");
+}
+function openSoon(title, text) {
+  $("soon-title").textContent = title;
+  $("soon-text").textContent = text;
+  $("soon-dialog").showModal();
+}
+function renderAttentionCenter() {
+  const el = scheduleElement;
+  const dateTime = new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+  const open = attentionAlerts.filter(alert => !resolvedAlerts.has(alert.key));
+  const done = attentionAlerts.filter(alert => resolvedAlerts.has(alert.key));
+  const count = $("attention-count");
+  count.textContent = open.length;
+  count.dataset.tone = open.length ? "danger" : "neutral";
+  for (const [key,list] of [["open",open],["resolved",done]]) {
+    document.querySelector('[data-attention-total="'+key+'"]').textContent = list.length;
+  }
+  for (const tab of document.querySelectorAll("[data-attention-tab]")) {
+    tab.setAttribute("aria-checked", String(tab.dataset.attentionTab === attentionTab));
+  }
+  const badge = $("activity-badge");
+  badge.textContent = open.length;
+  badge.hidden = !open.length;
+  const link = badge.closest("a");
+  link.setAttribute("aria-label", "Central de atividades" + (open.length ? ", " + open.length + (open.length === 1 ? " alerta aberto" : " alertas abertos") : ""));
+  $("ac-tab-attention-count").textContent = open.length ? "(" + open.length + ")" : "";
+
+  const root = $("alerts");
+  root.replaceChildren();
+  const visible = attentionTab === "open" ? open : done;
+  if (!visible.length) {
+    const message = el("p","ac-empty");
+    if (attentionTab === "open" && isDemo) message.innerHTML = icon("circle-check") + " <strong>Tudo em dia!</strong>";
+    message.append(document.createTextNode(attentionTab === "resolved" ? "Nenhum alerta resolvido." :
+      isDemo ? " Nenhuma pendência neste escopo." : "Fonte de alertas operacionais indisponível."));
+    root.append(message);
+    return;
+  }
+  const list = el("ul","ac-alert-list");
+  for (const alert of visible) {
+    const resolved = resolvedAlerts.has(alert.key);
+    const item = el("li","ac-alert");
+    item.dataset.kind = alert.kind;
+    item.dataset.state = resolved ? "resolved" : "open";
+    const tile = el("span","ac-alert-tile");
+    tile.innerHTML = icon(alert.kind === "connection" ? "unplug" : "circle-alert");
+    tile.setAttribute("aria-hidden","true");
+    const body = el("div","ac-alert-body");
+    const top = el("div","ac-alert-top");
+    top.append(el("strong","",alert.title));
+    const ago = relativeTime(alert.at);
+    if (ago) {
+      const time = el("time","",ago);
+      time.dateTime = alert.at;
+      top.append(time);
+    }
+    const when = Number.isFinite(Date.parse(alert.at)) ? dateTime.format(new Date(alert.at)) : "";
+    body.append(top,
+      el("p","ac-alert-what",alert.kind === "publication" ? alert.name + " · " + (alert.format === "Imagem" ? "Feed" : alert.format) : alert.name),
+      el("p","ac-alert-ctx",[alert.client, alert.kind === "publication" ? alert.account : "Instagram", when].filter(Boolean).join(" · ")));
+    if (!resolved) {
+      const impact = el("p","ac-alert-impact",alert.kind === "connection" ?
+        "Os agendamentos desta conta não serão publicados até reconectar." :
+        "A publicação não saiu. Revise e agende de novo.");
+      impact.insertAdjacentHTML("afterbegin",icon("triangle-alert"));
+      body.append(impact);
+    }
+    const actions = el("div","ac-alert-actions");
+    const primary = el("button","ac-button ac-button-primary",alert.kind === "connection" ? "Reconectar conta" : "Revisar publicação");
+    primary.type = "button";
+    primary.insertAdjacentHTML("afterbegin",icon(alert.kind === "connection" ? "refresh" : "eye"));
+    primary.addEventListener("click",() => alert.kind === "connection" ?
+      openSoon("Reconectar conta","A reconexão de contas do Instagram ainda está em construção. Quando estiver pronta, este botão vai abrir a autorização da Meta para " + alert.name + ".") :
+      openDialog(alert.name,[alert.title,alert.format,alert.client,alert.account,when,"Estado: "+alert.status,isDemo ? "Dados de demonstração." : ""].filter(Boolean)));
+    const toggle = el("button","ac-button ac-button-ghost",resolved ? "Reabrir" : "Resolvido");
+    toggle.type = "button";
+    toggle.insertAdjacentHTML("afterbegin",icon(resolved ? "rotate-ccw" : "check"));
+    toggle.setAttribute("aria-label",(resolved ? "Reabrir alerta: " : "Marcar como resolvido: ") + alert.title + " · " + alert.name);
+    toggle.addEventListener("click",() => {
+      const index = visible.indexOf(alert);
+      if (resolved) resolvedAlerts.delete(alert.key); else resolvedAlerts.add(alert.key);
+      saveResolved();
+      renderAttention(lastAccounts);
+      // Mantém o foco no próximo alerta da lista, ou nas abas quando a lista esvazia.
+      const buttons = $("alerts").querySelectorAll(".ac-button-ghost");
+      (buttons[Math.min(index,buttons.length-1)] ?? document.querySelector('[data-attention-tab="'+attentionTab+'"]'))?.focus();
+    });
+    actions.append(primary,toggle);
+    if (resolved) actions.prepend(el("span","ac-resolved-chip","Resolvido"));
+    body.append(actions);
+    item.append(tile,body);
+    list.append(item);
+  }
+  root.append(list);
+}
+for (const tab of document.querySelectorAll("[data-attention-tab]")) {
+  tab.addEventListener("click",() => {
+    attentionTab = tab.dataset.attentionTab;
+    renderAttentionCenter();
+    tab.focus();
+  });
+}
+function showActivityView(view) {
+  document.querySelector(".activity-center-grid").dataset.view = view;
+  $("ac-tab-attention").setAttribute("aria-selected",String(view === "attention"));
+  $("ac-tab-history").setAttribute("aria-selected",String(view === "history"));
+}
+$("ac-tab-attention").addEventListener("click",() => showActivityView("attention"));
+$("ac-tab-history").addEventListener("click",() => showActivityView("history"));
 
 
 function renderTable() {
+  const el = scheduleElement;
   const query = $("search").value.trim().toLocaleLowerCase("pt-BR");
   const status = $("status-filter").value;
-  const filtered = activity.filter((post) => (!status || status === post.status) &&
-    [post.title,post.format,accountName(post.account),statusText[post.status]].join(" ").toLocaleLowerCase("pt-BR").includes(query));
+  const clientOf = id => scopedClients.find(client => client.id === demo.accounts.find(account => account.id === id)?.client)?.name ?? "";
+  const events = [
+    ...activity.map(post => ({kind:"post",post,at:post.date+"T"+post.hour+":00-03:00",time:post.hour,status:post.status,
+      title:post.title,label:statusText[post.status],account:accountName(post.account),client:clientOf(post.account),format:post.format})),
+    ...connectionEvents.filter(alert => {
+      const day = dateKey.format(new Date(alert.at));
+      return day >= currentRange.start && day <= currentRange.end;
+    }).map(alert => ({kind:"connection",alert,at:alert.at,status:"Desconectada",title:alert.name,label:"Conta desconectada",
+      account:"Instagram",client:alert.client})),
+  ].sort((a,b) => Date.parse(b.at) - Date.parse(a.at));
+  const filtered = events.filter(event => (!status || status === event.status) &&
+    [event.title,event.format,event.account,event.client,event.label].join(" ").toLocaleLowerCase("pt-BR").includes(query));
+  $("activity-count").textContent = filtered.length;
+  const root = $("activity-table");
+  root.replaceChildren();
   if (!filtered.length) {
-    $("activity-table").innerHTML = empty(isDemo ? "Nenhuma atividade encontrada para os filtros." : "Nenhuma fonte de atividade conectada.");
+    root.append(el("p","ac-empty",isDemo ? "Nenhuma atividade encontrada para os filtros." : "Nenhuma fonte de atividade conectada."));
     return;
   }
-  const pages = Math.ceil(filtered.length/pageSize);
-  page = Math.min(page,pages);
-  const cell = (label,content) => '<td data-label="' + label + '">' + content + '</td>';
-  $("activity-table").innerHTML = '<div class="table-wrap scroll-region"><table><thead><tr>' +
-    ["Publicação","Conta","Atividade","Status","Data","Ações"].map((label) => '<th scope="col">' + label + '</th>').join("") +
-    '</tr></thead><tbody>' + filtered.slice((page-1)*pageSize,page*pageSize).map((post) =>
-    '<tr>' + cell("Publicação",'<span class="entry">' + icon(post.format==="Reel"?"posts":"media") + post.title + '</span>') +
-    cell("Conta",accountName(post.account)) + cell("Atividade",statusText[post.status]) +
-    cell("Status",'<span class="status ' + post.status.toLowerCase() + '">' + post.status + '</span>') +
-    cell("Data",formatDate(post.date) + ' · ' + post.hour) + cell("Ações",'<button class="row-action" data-post="' + post.id +
-    '" aria-label="Abrir detalhes de ' + post.title + '">···</button>') + '</tr>').join("") +
-    '</tbody></table></div><div class="pages"><span>' + filtered.length + ' registros · ' + page + '/' + pages +
-    '</span><button class="button" data-page="-1" aria-label="Página anterior" ' + (page===1?"disabled":"") +
-    '>‹</button><button class="button" data-page="1" aria-label="Próxima página" ' + (page===pages?"disabled":"") + '>›</button></div>';
+  const shown = filtered.slice(0,page*pageSize);
+  const dayName = new Intl.DateTimeFormat("pt-BR",{weekday:"short",day:"numeric",month:"short",timeZone:"UTC"});
+  const timeOf = at => new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(at));
+  const symbols = {Publicado:"check",Agendado:"clock",Falha:"x",Rascunho:"pencil",Desconectada:"unplug"};
+  let lastDay, list;
+  for (const event of shown) {
+    const day = dateKey.format(new Date(event.at));
+    if (day !== lastDay) {
+      const name = dayName.format(new Date(day+"T12:00:00Z"));
+      const prefix = day === today ? "Hoje · " : day === offsetDay(today,-1) ? "Ontem · " : "";
+      root.append(el("h3","ac-day",prefix + name));
+      list = el("ul","ac-event-list");
+      root.append(list);
+      lastDay = day;
+    }
+    const row = el("li");
+    const button = el("button","ac-event");
+    button.type = "button";
+    button.dataset.status = event.status;
+    button.setAttribute("aria-label","Abrir detalhes de " + event.title);
+    if (event.kind === "post") button.dataset.post = event.post.id;
+    else button.addEventListener("click",() => openDialog(event.title,[event.label,event.client,"Instagram",
+      new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,dateStyle:"short",timeStyle:"short"}).format(new Date(event.at)),
+      isDemo ? "Dados de demonstração." : ""].filter(Boolean)));
+    const mark = el("span","ac-event-mark");
+    mark.innerHTML = icon(symbols[event.status] ?? "clock");
+    mark.setAttribute("aria-hidden","true");
+    const copy = el("span","ac-event-copy");
+    const line = el("span","ac-event-line");
+    line.append(el("strong","",event.title),document.createTextNode(" · " + event.label));
+    const meta = el("span","ac-event-meta",[event.account,event.client].filter(Boolean).join(" · "));
+    if (event.format) meta.append(el("span","ac-tag",event.format === "Imagem" ? "Feed" : event.format));
+    copy.append(line,meta);
+    const side = el("span","ac-event-side");
+    const chip = el("span","ac-chip",event.status);
+    chip.dataset.status = event.status;
+    side.append(chip,el("time","",event.time ?? timeOf(event.at)));
+    button.append(mark,copy,side);
+    row.append(button);
+    list.append(row);
+  }
+  const footer = el("div","ac-feed-footer");
+  footer.append(el("span","","Mostrando " + shown.length + " de " + filtered.length));
+  if (shown.length < filtered.length) {
+    const more = el("button","ac-button ac-button-ghost","Carregar mais");
+    more.type = "button";
+    more.dataset.more = "";
+    more.insertAdjacentHTML("beforeend",icon("chevron-down"));
+    footer.append(more);
+  }
+  root.append(footer);
 }
 
 const scheduleDayLabel = new Intl.DateTimeFormat("pt-BR",{weekday:"short",day:"numeric",month:"short",timeZone:"UTC"});
@@ -537,6 +729,7 @@ function refresh() {
   const selected = range(appliedFilters);
   const data = getData(selected.start,selected.end);
   activity = data.activity;
+  currentRange = selected;
   page = 1;
   renderAnalytics(data);
   renderScheduledPosts(data);
@@ -1102,10 +1295,11 @@ document.addEventListener("click",(event) => {
       statusText[post.status]+" · "+formatDate(post.date)+" às "+post.hour,
       post.scheduled ? "Previsto para "+formatDate(post.scheduled) : post.reach ? number.format(post.reach)+" de alcance no exemplo" : "Dados de alcance indisponíveis."]);
   }
-  if (button.dataset.page) {
-    page+=Number(button.dataset.page);
+  if (button.hasAttribute("data-more")) {
+    const before = document.querySelectorAll("#activity-table .ac-event").length;
+    page++;
     renderTable();
-    (document.querySelector('[data-page="'+button.dataset.page+'"]:not(:disabled)') ?? document.querySelector("[data-page]:not(:disabled)"))?.focus();
+    document.querySelectorAll("#activity-table .ac-event")[before]?.focus();
   }
 });
 const composer = createComposer({isDemo,workspace:activeWorkspace?.id,today,now:Date.parse(demo.now),timezone,clients:scopedClients,accountsFor,icon,
@@ -1149,10 +1343,11 @@ function updateNavigation() {
   agenda.setClockActive(route === "agenda");
   if (route === "agenda") agenda.render();
   if (route === "banners") renderBanners();
+  if (route === "attention" || route === "activities") showActivityView(route === "attention" ? "attention" : document.querySelector(".activity-center-grid").dataset.view);
   if (main.dataset.operation || route === "overview-top") contentViewport.scrollTo({top:0,behavior:"instant"});
   else $(route)?.scrollIntoView();
   document.querySelectorAll(".side-nav a,.sidebar-footer a").forEach((link) => {
-    if (link.hash===current) link.setAttribute("aria-current","location");
+    if (link.hash===current || (current==="#attention" && link.hash==="#activities")) link.setAttribute("aria-current","location");
     else link.removeAttribute("aria-current");
   });
 }

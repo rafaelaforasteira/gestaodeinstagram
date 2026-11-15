@@ -46,14 +46,17 @@ try {
     assert.equal(await helpPage.evaluate(() => document.documentElement.scrollWidth),width);
   }
   await helpPage.goto(new URL("#activities",url).href);
-  const activityHelp = helpPage.getByRole("button",{name:"Sobre Atividades recentes"});
+  // No celular, o histórico fica na aba "Histórico" da Central de atividades.
+  const historyTab = helpPage.getByRole("tab",{name:"Histórico"});
+  if (await historyTab.isVisible()) await historyTab.click();
+  const activityHelp = helpPage.getByRole("button",{name:"Sobre Histórico de atividades"});
   await activityHelp.focus();
   await helpPage.keyboard.press("Enter");
   assert.equal(await activityHelp.getAttribute("aria-expanded"),"true");
   await helpPage.keyboard.press("Escape");
   assert.equal(await activityHelp.getAttribute("aria-expanded"),"false");
   assert.equal(await activityHelp.evaluate(el => el === document.activeElement),true);
-  for (const [route,title] of [["attention","Central de atenção"]]) {
+  for (const [route,title] of [["attention","Precisa de atenção"]]) {
     await helpPage.goto(new URL("#"+route,url).href);
     const button = helpPage.getByRole("button",{name:"Sobre "+title});
     await button.focus();
@@ -243,7 +246,7 @@ try {
   await page.reload();
   assert.equal(await page.locator("#profile-name").innerText(), "Rafael");
   await page.locator('.side-nav a[href="#activities"]').click();
-  await page.getByRole("table").waitFor();
+  await page.locator("#activity-table .ac-event").first().waitFor();
   await page.getByRole("searchbox").fill("Coleção");
   await page.getByRole("button", { name: "Abrir detalhes de Coleção Aurora" }).click();
   await page.getByRole("dialog").waitFor();

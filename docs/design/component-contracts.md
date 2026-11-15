@@ -38,7 +38,7 @@ Os cartões da Agenda reutilizam as miniaturas, os ícones de destino e as tags 
 
 Cada faixa de horário cresce pela altura real dos cartões em fluxo. A primeira publicação mantém um deslocamento conforme o minuto, e as demais seguem em ordem cronológica com o horário exato visível. A mesma linha da grade define a altura para todos os dias. Mês conserva o acesso aos eventos adicionais pelo contador da célula. O reagendamento por arrastar depende de uma integração futura com alvos temporais explícitos e confirmação.
 
-A Central de atenção da Agenda fica abaixo do seletor e mostra até três pendências. O contador e a página completa usam a mesma lista, filtrada por workspace, cliente e conta, independentemente das datas visíveis. Falhas de publicação têm prioridade sobre desconexões e, dentro do mesmo tipo, os registros mais recentes vêm primeiro. Quando há registros editoriais e de agendamento da mesma publicação, o estado do agendamento prevalece. Abrir detalhes não muda o estado da pendência.
+A Central de atenção da Agenda fica abaixo do seletor e mostra até três pendências abertas. O contador e a coluna Precisa de atenção da Central de atividades usam a mesma lista, filtrada por workspace, cliente e conta, independentemente das datas visíveis. Falhas de publicação têm prioridade sobre desconexões e, dentro do mesmo tipo, os registros mais recentes vêm primeiro. Quando há registros editoriais e de agendamento da mesma publicação, o estado do agendamento prevalece. Abrir detalhes não muda o estado da pendência.
 
 A prévia usa estados de demonstração e identifica dados indisponíveis fora desse modo. Ela não possui serviço de consulta, transição de resolução ou repetição de publicações. Um futuro serviço deve distinguir carregamento, erro e consulta vazia, e retirar uma pendência apenas após confirmar seu novo estado.
 
@@ -56,6 +56,15 @@ Link Bio na Visão Geral usa dois widgets com proporção 40/60 e empilhamento e
 As amostras de Link Bio usam vínculos explícitos com contas e clientes do workspace. O checkout ainda não possui armazenamento de banners, ingestão de cliques ou uma fonte de produção para esta seção. Fora da demonstração, os indicadores e o ranking mostram indisponibilidade.
 
 Na prévia local, o modal da Agenda exibe “Publicação no Instagram” para destinos Instagram e informa que o link está indisponível na demonstração. O fluxo de produção depende da API autenticada de detalhes e da recuperação do permalink no worker, por destino, após a confirmação da publicação.
+
+## Central de atividades
+
+Rota `#activities`; `#attention` abre a mesma página com a coluna de atenção em foco. O item do menu usa o ícone de pulso e mostra um contador laranja com os alertas abertos.
+
+- **Precisa de atenção** reúne falhas de publicação e contas desconectadas do escopo aplicado. Cada alerta informa o que aconteceu, o cliente, a conta, o horário, o que fica impedido e traz uma ação direta (Revisar publicação ou Reconectar conta) mais Resolvido/Reabrir. Abertos e Resolvidos ficam em abas; na demonstração, o estado resolvido é salvo só no navegador. Reconectar conta mostra aviso de recurso em construção até existir a integração. Textos de impacto não inventam o motivo da falha; com dados reais, o motivo vem da API.
+- **Histórico de atividades** é uma linha do tempo agrupada por dia, com publicações, agendamentos, falhas, rascunhos e desconexões de conta do período aplicado. Busca por publicação, conta ou cliente, filtro de status e Carregar mais (8 por vez). Cada linha abre o detalhe.
+- No celular, as duas colunas viram as abas Atenção e Histórico.
+- Avisos por WhatsApp e e-mail aparecem como "Em breve" e dependem da automação de mensagens.
 
 ## Gestão de Banners — Link Bio
 

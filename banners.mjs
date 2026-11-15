@@ -20,8 +20,12 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
   const form = document.querySelector("#banner-editor");
   const dialog = form.closest("dialog");
   const list = root.querySelector(".banner-list");
-  const soon = document.querySelector("#banner-client-soon");
-  document.querySelector("#banner-add-client").addEventListener("click",()=>soon.showModal());
+  const soon = document.querySelector("#soon-dialog");
+  document.querySelector("#banner-add-client").addEventListener("click",()=>{
+    soon.querySelector("#soon-title").textContent = "Adicionar cliente";
+    soon.querySelector("#soon-text").textContent = "Em breve você vai poder conectar o Link Bio do site de um cliente e gerenciar os banners dele por aqui.";
+    soon.showModal();
+  });
   const error = form.querySelector("[role=alert]");
   const storageKey = "studio-banners-v1-"+workspace;
   const scope = new Map(accounts.map(account => [account.id,account]));

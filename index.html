@@ -65,6 +65,10 @@
 <symbol id="icon-pulse" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></symbol>
 <symbol id="icon-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></symbol>
 <symbol id="icon-unplug" viewBox="0 0 24 24"><path d="m19 5 3-3M2 22l3-3m2-8 6 6m4-4-6-6m3 3 3-3m-7 7 3-3m-5 1-3 3a3 3 0 0 0 4 4l3-3m0-8 3-3a3 3 0 0 1 4 4l-3 3"/></symbol>
+<symbol id="icon-bell" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></symbol>
+<symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5"/></symbol>
+<symbol id="icon-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01"/></symbol>
+<symbol id="icon-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"/></symbol>
 <symbol id="icon-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
 <symbol id="icon-grip-vertical" viewBox="0 0 24 24"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></symbol>
 <symbol id="icon-ellipsis" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
@@ -90,10 +94,9 @@
       <a class="side-item" href="#overview-top" aria-label="Visão Geral" title="Visão Geral"><svg aria-hidden="true"><use href="#icon-overview"/></svg><span class="side-label" aria-hidden="true">Visão Geral</span></a>
       <a class="side-item" href="#agenda" aria-label="Agenda" title="Agenda"><svg aria-hidden="true"><use href="#icon-calendar"/></svg><span class="side-label" aria-hidden="true">Agenda</span></a>
       <a class="side-item" href="#banners" aria-label="Gestão de Banners" title="Gestão de Banners"><svg aria-hidden="true"><use href="#icon-banners"/></svg><span class="side-label" aria-hidden="true">Gestão de Banners</span></a>
-      <a class="side-item" href="#activities" aria-label="Atividades" title="Atividades"><svg aria-hidden="true"><use href="#icon-posts"/></svg><span class="side-label" aria-hidden="true">Atividades</span></a>
+      <a class="side-item side-item-badged" href="#activities" aria-label="Central de atividades" title="Central de atividades"><svg aria-hidden="true"><use href="#icon-pulse"/></svg><span class="side-badge" id="activity-badge" hidden></span><span class="side-label" aria-hidden="true">Central de atividades</span></a>
       <a class="side-item" href="#editorial" aria-label="Conteúdos em destaque" title="Conteúdos em destaque"><svg aria-hidden="true"><use href="#icon-media"/></svg><span class="side-label" aria-hidden="true">Conteúdos em destaque</span></a>
       <a class="side-item" href="#performance" aria-label="Desempenho" title="Desempenho"><svg aria-hidden="true"><use href="#icon-chart"/></svg><span class="side-label" aria-hidden="true">Desempenho</span></a>
-      <a class="side-item" href="#attention" aria-label="Central de atenção" title="Central de atenção"><svg aria-hidden="true"><use href="#icon-pulse"/></svg><span class="side-label" aria-hidden="true">Central de atenção</span></a>
     </nav></div>
     <div class="sidebar-footer">
       <button class="side-item sidebar-profile" id="profile-button" type="button" aria-label="Configurar perfil" aria-haspopup="dialog">
@@ -199,9 +202,33 @@
         </div>
       </div>
       <div class="operational-pages">
-        <section class="card activity-card" id="activities" aria-labelledby="activity-title">
-          <div class="activity-header"><div><h2 id="activity-title">Atividades recentes</h2><p class="muted">Acompanhe o que mudou na sua operação.</p></div><div class="activity-tools"><label class="search"><svg><use href="#icon-search"/></svg><input id="search" type="search" aria-label="Buscar atividades" placeholder="Buscar atividade"></label><label class="filter"><svg><use href="#icon-filter"/></svg><select id="status-filter" aria-label="Filtrar por status"><option value="">Todos os status</option><option>Publicado</option><option>Agendado</option><option>Falha</option><option>Rascunho</option></select></label></div></div>
-          <div id="activity-table"></div>
+        <section class="activity-center" id="activities" aria-labelledby="activity-center-title">
+          <header class="activity-center-heading">
+            <span class="activity-center-icon" aria-hidden="true"><svg><use href="#icon-pulse"/></svg></span>
+            <div><h1 id="activity-center-title">Central de atividades</h1><p class="page-summary">O que precisa da sua atenção e tudo o que aconteceu na operação.</p></div>
+          </header>
+          <div class="activity-center-switch" role="tablist" aria-label="Seções da Central de atividades">
+            <button type="button" role="tab" id="ac-tab-attention" aria-controls="attention" aria-selected="true">Atenção <span id="ac-tab-attention-count"></span></button>
+            <button type="button" role="tab" id="ac-tab-history" aria-controls="activity-history" aria-selected="false">Histórico</button>
+          </div>
+          <div class="activity-center-grid" data-view="attention">
+            <section class="card ac-card" id="attention" aria-labelledby="attention-title">
+              <div class="ac-card-head" data-help-header><h2 id="attention-title">Precisa de atenção</h2><span class="ac-count" id="attention-count" data-tone="danger"></span></div>
+              <p class="ac-sub">Problemas que impedem uma publicação. Resolva para tirar daqui.</p>
+              <div class="ac-tabs" role="radiogroup" aria-label="Situação dos alertas">
+                <button type="button" role="radio" data-attention-tab="open" aria-checked="true">Abertos <span data-attention-total="open"></span></button>
+                <button type="button" role="radio" data-attention-tab="resolved" aria-checked="false">Resolvidos <span data-attention-total="resolved"></span></button>
+              </div>
+              <div id="alerts" class="ac-alerts scroll-region"></div>
+              <p class="ac-soon"><svg aria-hidden="true"><use href="#icon-bell"/></svg><span><strong>Avisos por WhatsApp e e-mail</strong>Você vai receber estes alertas fora da plataforma.</span><span class="ac-soon-pill">Em breve</span></p>
+            </section>
+            <section class="card ac-card activity-card" id="activity-history" aria-labelledby="activity-title">
+              <div class="ac-card-head" data-help-header><h2 id="activity-title">Histórico de atividades</h2><span class="ac-count" id="activity-count"></span></div>
+              <p class="ac-sub">Tudo o que aconteceu nas contas e no período selecionados, do mais recente ao mais antigo.</p>
+              <div class="ac-tools"><label class="search"><svg aria-hidden="true"><use href="#icon-search"/></svg><input id="search" type="search" aria-label="Buscar atividades" placeholder="Buscar publicação, conta ou cliente"></label><label class="filter"><svg aria-hidden="true"><use href="#icon-filter"/></svg><select id="status-filter" aria-label="Filtrar por status"><option value="">Todos os status</option><option>Publicado</option><option>Agendado</option><option>Falha</option><option>Rascunho</option><option value="Desconectada">Conta desconectada</option></select></label></div>
+              <div id="activity-table" class="ac-feed"></div>
+            </section>
+          </div>
         </section>
         <section class="card agenda-page" id="agenda" aria-labelledby="agenda-title">
           <h2 id="agenda-title" class="sr-only">Agenda</h2>
@@ -247,7 +274,6 @@
           <p role="status" class="muted"></p>
           <div class="banner-workspace"><div class="banner-list"></div></div>
         </section>
-        <section class="card" id="attention"><h2 id="attention-title">Central de atenção</h2><div id="alerts"></div></section>
       </div>
 
     </main>
@@ -262,11 +288,11 @@
   </header>
   <div class="banner-manager-content"></div>
 </dialog>
-<dialog id="banner-client-soon" aria-labelledby="banner-client-soon-title" aria-describedby="banner-client-soon-text">
+<dialog id="soon-dialog" aria-labelledby="soon-title" aria-describedby="soon-text">
   <span class="soon-icon" aria-hidden="true"><svg><use href="#icon-banners"/></svg></span>
   <span class="soon-badge">Em construção · No ar em breve</span>
-  <h2 id="banner-client-soon-title">Adicionar cliente</h2>
-  <p id="banner-client-soon-text">Em breve você vai poder conectar o Link Bio do site de um cliente e gerenciar os banners dele por aqui.</p>
+  <h2 id="soon-title">Adicionar cliente</h2>
+  <p id="soon-text">Em breve você vai poder conectar o Link Bio do site de um cliente e gerenciar os banners dele por aqui.</p>
   <form method="dialog"><button class="soon-ok">Entendi</button></form>
 </dialog>
 <dialog id="banner-account-picker" aria-labelledby="banner-account-title"><form method="dialog"><button class="button" aria-label="Fechar seleção de conta">×</button></form><h2 id="banner-account-title">Escolha a conta do cliente</h2><div></div></dialog>
