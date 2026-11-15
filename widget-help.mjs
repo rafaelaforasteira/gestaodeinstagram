@@ -8,6 +8,7 @@ export const widgetHelp = {
   "featured-title": "Até três publicações dos perfis selecionados, ordenadas pelo alcance acumulado. O filtro de período considera a data da publicação.",
   "formats-title": "Compara a média da métrica selecionada por publicação e formato. Intervalos usam janelas de mesma duração. Ao selecionar um dia, a comparação usa o histórico até esse dia e até a véspera.",
   "bio-overview-title": "Conta cliques únicos por evento no período para as contas selecionadas. Os totais de banners mostram a situação atual, independentemente do intervalo de cliques.",
+  "banner-manager-title": "Banners do cliente na ordem em que aparecem no Link Bio. Arraste ou use Mover para cima/baixo para mudar a ordem. O interruptor liga e desliga o banner. Os cliques seguem o período do filtro e o status é o atual.",
   "bio-ranking-title": "Ordena até cinco banners pelos cliques válidos do período nas contas selecionadas. O status é o atual.",
   "activity-title": "Mostra registros das contas e do período selecionados, do mais recente ao mais antigo. Use a busca e o filtro de status para refinar a lista.",
   "attention-title": "Reúne publicações com falha nas contas e no período selecionados. Abra uma publicação para revisar os detalhes.",

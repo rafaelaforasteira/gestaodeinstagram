@@ -65,6 +65,15 @@
 <symbol id="icon-pulse" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></symbol>
 <symbol id="icon-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></symbol>
 <symbol id="icon-unplug" viewBox="0 0 24 24"><path d="m19 5 3-3M2 22l3-3m2-8 6 6m4-4-6-6m3 3 3-3m-7 7 3-3m-5 1-3 3a3 3 0 0 0 4 4l3-3m0-8 3-3a3 3 0 0 1 4 4l-3 3"/></symbol>
+<symbol id="icon-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="icon-grip-vertical" viewBox="0 0 24 24"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></symbol>
+<symbol id="icon-ellipsis" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+<symbol id="icon-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497zM15 5l4 4"/></symbol>
+<symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+<symbol id="icon-archive" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/></symbol>
+<symbol id="icon-arrow-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></symbol>
+<symbol id="icon-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></symbol>
+<symbol id="icon-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
 <symbol id="icon-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14m-7-7 7 7-7 7"/></symbol>
 <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></symbol>
 <symbol id="icon-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10m-7 6h4"/></symbol>
@@ -256,10 +265,12 @@
   </div>
 </div>
 <dialog class="scroll-region" id="dialog" aria-labelledby="dialog-title"><form method="dialog"><button class="button close" aria-label="Fechar">×</button></form><h2 id="dialog-title"></h2><div id="dialog-content"></div></dialog>
-<dialog id="banner-manager" class="scroll-region" aria-labelledby="banner-manager-title">
-  <form method="dialog"><button class="button close" aria-label="Fechar gerenciamento">×</button></form>
-  <h2 id="banner-manager-title">Gerenciar banners</h2>
-  <p class="banner-manager-subtitle muted"></p>
+<dialog id="banner-manager" aria-labelledby="banner-manager-title">
+  <header class="bm-head">
+    <span class="banner-client-avatar bm-avatar" aria-hidden="true"></span>
+    <div class="bm-title"><div data-help-header><h2 id="banner-manager-title">Banners do Link Bio</h2></div><p class="banner-manager-subtitle muted"></p></div>
+    <button type="button" class="bm-icon-button bm-close" data-bm-close aria-label="Fechar gerenciamento"><svg aria-hidden="true"><use href="#icon-x"/></svg></button>
+  </header>
   <div class="banner-manager-content"></div>
 </dialog>
 <dialog id="banner-account-picker" aria-labelledby="banner-account-title"><form method="dialog"><button class="button" aria-label="Fechar seleção de conta">×</button></form><h2 id="banner-account-title">Escolha a conta do cliente</h2><div></div></dialog>

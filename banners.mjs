@@ -59,7 +59,11 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
   let scrollCleanups = [];
   const manager = document.querySelector("#banner-manager");
   const managerContent = manager.querySelector(".banner-manager-content");
-  manager.addEventListener("close",()=>{managingClient=undefined;});
+  let managerFilter = "";
+  let pendingFocus = "";
+  let confirmingArchive = "";
+  manager.addEventListener("close",()=>{managingClient=undefined;managerFilter="";confirmingArchive="";});
+  manager.querySelector("[data-bm-close]").addEventListener("click",()=>manager.close());
   function manage(clientId) {
     managingClient = clientId;
     render();
@@ -280,6 +284,256 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
   form.querySelector(".banner-editor-close").addEventListener("click",()=>dialog.close());
   form.querySelector("[data-cancel-banner]").addEventListener("click",() => dialog.close());
   filter.addEventListener("change",render);
+  // Modal "Banners do Link Bio": lista ordenável + prévia ao vivo.
+  // A ordem da lista é a ordem do Link Bio; ações secundárias ficam no menu "Mais ações".
+  function renderManager(client,siblings,items,move,start,end,now) {
+    const el = (tag,className,text) => {
+      const node = create(tag,text);
+      if (className) node.className = className;
+      return node;
+    };
+    const withIcon = (node,name) => {node.insertAdjacentHTML("afterbegin",icon(name));return node;};
+    const short = day => day.split("-").reverse().slice(0,2).join("/");
+    const clicksLabel = start===end ? (end===demo.today ? "cliques hoje" : "cliques em "+short(end)) :
+      "cliques de "+short(start)+" a "+short(end);
+    const statusOf = banner => bannerStatus(banner,now);
+    const counts = {live:0,scheduled:0,inactive:0};
+    for (const banner of siblings) if (counts[statusOf(banner)] !== undefined) counts[statusOf(banner)]++;
+
+    manager.querySelector(".bm-avatar").textContent = client.name.charAt(0);
+    const handles = [...new Set(siblings.map(item=>scope.get(item.account)?.name).filter(name=>name?.startsWith("@")))];
+    manager.querySelector(".banner-manager-subtitle").textContent = [client.name,...handles,
+      siblings.length+" "+(siblings.length===1?"banner":"banners")+", "+counts.live+" no ar"].join(" · ");
+
+    // Barra: filtro por status com contagem + ação principal
+    const toolbar = el("div","bm-toolbar");
+    const filterGroup = el("div","bm-filter");
+    filterGroup.setAttribute("role","radiogroup");
+    filterGroup.setAttribute("aria-label","Filtrar banners por status");
+    for (const [value,label,count] of [["","Todos",siblings.length],["live","No ar",counts.live],
+      ["scheduled","Programados",counts.scheduled],["inactive","Inativos",counts.inactive]]) {
+      const option = el("button","bm-filter-option");
+      option.type = "button";
+      option.setAttribute("role","radio");
+      option.setAttribute("aria-checked",String(managerFilter===value));
+      option.dataset.focus = "filter:"+value;
+      option.append(create("span",label),el("span","bm-count",String(count)));
+      option.addEventListener("click",()=>{managerFilter=value;pendingFocus="filter:"+value;render();});
+      filterGroup.append(option);
+    }
+    const addButton = withIcon(el("button","bm-primary","Novo banner"),"plus");
+    addButton.type = "button";
+    addButton.disabled = !accounts.some(account=>account.client===client.id);
+    addButton.addEventListener("click",()=>edit(undefined,false,client.id));
+    toolbar.append(filterGroup,addButton);
+
+    const layout = el("div","bm-layout");
+    const listSection = el("section","bm-list");
+    listSection.setAttribute("aria-label","Banners de "+client.name);
+    const visible = managerFilter ? siblings.filter(banner=>statusOf(banner)===managerFilter) : siblings;
+    if (siblings.length>1) {
+      const hint = withIcon(el("p","bm-hint","Arraste para mudar a ordem. A ordem aqui é a mesma do Link Bio."),"grip-vertical");
+      listSection.append(hint);
+    }
+    if (!visible.length) {
+      listSection.append(el("p","bm-empty",siblings.length ? "Nenhum banner com este status." :
+        "Nenhum banner cadastrado. Use Novo banner para criar o primeiro."));
+    }
+    const list = el("ol","bm-rows");
+    const statusChip = status => {
+      const [label,symbol] = {live:["No ar","circle-check"],scheduled:["Programado","calendar-clock"],
+        inactive:["Inativo","circle-pause"]}[status] ?? ["Indisponível","circle-alert"];
+      const chip = withIcon(el("span","bm-chip",label),symbol);
+      chip.dataset.status = status ?? "";
+      return chip;
+    };
+    for (const banner of visible) {
+      const position = siblings.indexOf(banner);
+      const status = statusOf(banner);
+      const row = el("li","bm-row");
+      row.dataset.status = status ?? "";
+      row.draggable = true;
+      row.addEventListener("dragstart",event=>{
+        dragged = banner;
+        event.dataTransfer.setData("text/plain",banner.id);
+        event.dataTransfer.effectAllowed = "move";
+        row.dataset.dragging = "";
+      });
+      row.addEventListener("dragend",()=>{dragged=undefined;delete row.dataset.dragging;});
+      row.addEventListener("dragover",event=>{
+        if (dragged && dragged!==banner && siblings.includes(dragged)) {event.preventDefault();row.dataset.dropTarget="";}
+      });
+      row.addEventListener("dragleave",()=>delete row.dataset.dropTarget);
+      row.addEventListener("drop",event=>{event.preventDefault();delete row.dataset.dropTarget;move(dragged,banner);});
+
+      const grip = el("span","bm-grip");
+      grip.innerHTML = icon("grip-vertical");
+      grip.setAttribute("aria-hidden","true");
+      const order = el("span","bm-position",String(position+1));
+      order.setAttribute("aria-label","Posição "+(position+1));
+      const thumb = el("span","bm-thumb");
+      thumb.append(picture(banner));
+
+      const info = el("div","bm-info");
+      const titleRow = el("div","bm-title-row");
+      const title = el("h3","",banner.name);
+      title.title = banner.name;
+      titleRow.append(title,statusChip(status));
+      const meta = el("div","bm-meta");
+      const period = status==="scheduled" ? "Entra no ar em "+displayTime(banner.startsAt) :
+        displayTime(banner.startsAt)+" → "+displayTime(banner.endsAt);
+      meta.append(withIcon(el("span","",period),"calendar"));
+      const clicks = summarizeLinkBio([banner],demoBioClicks,new Set([banner.account]),start,end,now).clicks;
+      const clickLine = withIcon(el("span"),"mouse-pointer-click");
+      if (clicks) {
+        clickLine.append(el("strong","",clicks.toLocaleString("pt-BR")),document.createTextNode(" "+clicksLabel));
+      } else clickLine.append(document.createTextNode("Sem "+clicksLabel));
+      meta.append(clickLine);
+      const url = safeUrl(banner.url);
+      const destination = withIcon(el("span","bm-url"),"link-2");
+      destination.append(document.createTextNode(url ? new URL(url).host+new URL(url).pathname.replace(/\/$/,"") : "Destino não configurado"));
+      if (url) destination.title = url;
+      meta.append(destination);
+      info.append(titleRow,meta);
+
+      const controls = el("div","bm-actions");
+      const update = values => commit(items.map(item=>item.id===banner.id ? {...item,...values} : item));
+      if (confirmingArchive===banner.id) {
+        const question = el("span","bm-confirm-text","Arquivar este banner?");
+        const cancel = el("button","bm-button","Cancelar");
+        cancel.type = "button";
+        cancel.dataset.focus = "cancel:"+banner.id;
+        cancel.addEventListener("click",()=>{confirmingArchive="";pendingFocus="more:"+banner.id;render();});
+        const confirm = el("button","bm-button bm-danger","Arquivar");
+        confirm.type = "button";
+        confirm.addEventListener("click",()=>{
+          confirmingArchive="";
+          pendingFocus="filter:"+managerFilter;
+          if (update({state:"archived"})) message("Banner arquivado. O histórico de cliques foi preservado.");
+        });
+        controls.append(question,cancel,confirm);
+      } else {
+        const published = banner.state==="published";
+        const toggle = el("button","bm-switch");
+        toggle.type = "button";
+        toggle.setAttribute("role","switch");
+        toggle.setAttribute("aria-checked",String(published));
+        toggle.setAttribute("aria-label","Banner ativo: "+banner.name);
+        toggle.dataset.focus = "toggle:"+banner.id;
+        toggle.append(el("span","bm-switch-label","Ativo"),el("span","bm-switch-track"));
+        toggle.addEventListener("click",()=>{
+          pendingFocus = "toggle:"+banner.id;
+          if (update({state:published ? "paused" : "published"}))
+            message(published ? "Banner desativado." : "Banner ativado.");
+        });
+        const editButton = withIcon(el("button","bm-button","Editar"),"pencil");
+        editButton.type = "button";
+        editButton.setAttribute("aria-label","Editar "+banner.name);
+        editButton.addEventListener("click",()=>edit(banner));
+
+        const more = el("button","bm-icon-button");
+        more.type = "button";
+        more.innerHTML = icon("ellipsis");
+        more.dataset.focus = "more:"+banner.id;
+        more.setAttribute("aria-label","Mais ações para "+banner.name);
+        more.setAttribute("aria-haspopup","menu");
+        more.setAttribute("aria-expanded","false");
+        const menu = el("div","bm-menu");
+        menu.id = "bm-menu-"+banner.id;
+        menu.setAttribute("popover","auto");
+        menu.setAttribute("role","menu");
+        more.setAttribute("aria-controls",menu.id);
+        const item = (label,symbol,fn,danger=false,disabled=false) => {
+          const entry = withIcon(el("button","bm-menu-item"+(danger?" bm-danger-text":""),label),symbol);
+          entry.type = "button";
+          entry.setAttribute("role","menuitem");
+          entry.tabIndex = -1;
+          entry.disabled = disabled;
+          entry.addEventListener("click",()=>{menu.hidePopover();fn();});
+          return entry;
+        };
+        const previous = siblings[position-1], next = siblings[position+1];
+        menu.append(
+          item("Visualizar","eye",()=>{
+            const target = document.querySelector("#banner-view");
+            target.querySelector("h2").textContent = banner.name;
+            target.querySelector(".banner-media").replaceChildren(picture(banner));
+            target.querySelector("p").textContent = [{live:"No ar",scheduled:"Programado",inactive:"Inativo"}[status],
+              banner.title,banner.description,banner.cta].filter(Boolean).join(" · ");
+            target.showModal();
+          }),
+          item("Duplicar","copy",()=>edit(banner,true)),
+          item("Copiar link","link-2",async()=>{
+            try {await navigator.clipboard.writeText(url); message("Link copiado.");}
+            catch {message("Não foi possível copiar o link.");}
+          },false,!url),
+          item("Mover para cima","arrow-up",()=>{pendingFocus="more:"+banner.id;move(banner,previous);},false,!previous),
+          item("Mover para baixo","arrow-down",()=>{pendingFocus="more:"+banner.id;move(banner,next);},false,!next),
+          el("hr","bm-menu-divider"),
+          item("Arquivar","archive",()=>{confirmingArchive=banner.id;pendingFocus="cancel:"+banner.id;render();},true),
+        );
+        more.addEventListener("click",()=>{
+          if (menu.matches(":popover-open")) {menu.hidePopover();return;}
+          menu.showPopover();
+          const rect = more.getBoundingClientRect();
+          const width = menu.offsetWidth, height = menu.offsetHeight;
+          const {clientWidth:w,clientHeight:h} = document.documentElement;
+          menu.style.left = Math.max(8,Math.min(rect.right-width,w-width-8))+"px";
+          menu.style.top = (rect.bottom+4+height>h-8 ? Math.max(8,rect.top-height-4) : rect.bottom+4)+"px";
+          menu.querySelector(".bm-menu-item:not(:disabled)")?.focus();
+        });
+        menu.addEventListener("toggle",()=>more.setAttribute("aria-expanded",String(menu.matches(":popover-open"))));
+        menu.addEventListener("keydown",event=>{
+          if (!["ArrowDown","ArrowUp","Home","End"].includes(event.key)) return;
+          event.preventDefault();
+          const entries = [...menu.querySelectorAll(".bm-menu-item:not(:disabled)")];
+          const index = entries.indexOf(document.activeElement);
+          const target = event.key==="Home" ? 0 : event.key==="End" ? entries.length-1 :
+            (index+(event.key==="ArrowDown"?1:-1)+entries.length)%entries.length;
+          entries[target]?.focus();
+        });
+        controls.append(toggle,editButton,more,menu);
+      }
+      row.append(grip,order,thumb,info,controls);
+      list.append(row);
+    }
+    listSection.append(list);
+
+    // Prévia ao vivo: só banners no ar, na ordem da lista
+    const preview = el("aside","bm-preview");
+    preview.setAttribute("aria-label","Prévia do Link Bio");
+    const previewHead = el("div","bm-preview-head");
+    previewHead.append(el("span","","Prévia do Link Bio"),el("span","","Agora"));
+    const phone = el("div","bm-phone");
+    const screen = el("div","bm-screen");
+    const profile = el("span","bm-profile",client.name.charAt(0));
+    profile.setAttribute("aria-hidden","true");
+    screen.append(profile,el("strong","",client.name));
+    if (handles[0]) screen.append(el("small","",handles[0]));
+    const live = siblings.filter(banner=>statusOf(banner)==="live");
+    for (const banner of live) {
+      const card = el("div","bm-phone-card");
+      card.append(picture(banner),el("span","",banner.title || banner.name));
+      screen.append(card);
+    }
+    const upcoming = siblings.filter(banner=>statusOf(banner)==="scheduled")
+      .sort((a,b)=>Date.parse(a.startsAt)-Date.parse(b.startsAt))[0];
+    if (upcoming) screen.append(el("div","bm-phone-next",upcoming.name+" entra em "+displayTime(upcoming.startsAt)));
+    if (!live.length && !upcoming) screen.append(el("div","bm-phone-next","Nenhum banner no ar"));
+    phone.append(screen);
+    preview.append(previewHead,phone,el("p","bm-preview-note","Mostra só os banners no ar, na ordem da lista."));
+
+    layout.append(listSection,preview);
+    const foot = el("footer","bm-foot");
+    foot.append(el("span","","Demonstração · Horário de Brasília"),el("span","","Banners arquivados mantêm o histórico de cliques"));
+    managerContent.append(toolbar,layout,foot);
+
+    if (pendingFocus) {
+      const target = managerContent.querySelector('[data-focus="'+CSS.escape(pendingFocus)+'"]');
+      pendingFocus = "";
+      target?.focus({preventScroll:true});
+    }
+  }
   function render() {
     const items = sorted();
     const active = items.filter(item => item.state!=="archived");
@@ -403,81 +657,7 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
         removeIndicator();
       });
       if (managingClient !== client.id) continue;
-      manager.querySelector(".banner-manager-subtitle").textContent = client.name+" · "+siblings.length+" banners";
-      const management = create("div");
-      management.className = "banner-management";
-      management.append(action("Adicionar banner",()=>edit(undefined,false,client.id)));
-      if (!siblings.length) management.append(create("p","Nenhum banner cadastrado."));
-      if (siblings.some(item=>bannerStatus(item,now)==="live")) management.append(action("Prévia do Link Bio",()=>{
-        const target = document.querySelector("#banner-view");
-        target.querySelector("h2").textContent = "Link Bio · "+client.name;
-        target.querySelector("p").textContent = "Demonstração · Somente banners no ar";
-        target.querySelector(".banner-media").replaceChildren(...siblings.filter(item=>bannerStatus(item,now)==="live").map(item=>{
-          const entry = create("article");
-          entry.append(picture(item),create("strong",item.title || item.name));
-          if (item.description) entry.append(create("p",item.description));
-          if (item.cta) entry.append(create("span",item.cta));
-          return entry;
-        }));
-        target.showModal();
-      }));
-      for (const banner of siblings) {
-        const card = create("article");
-        card.className = "banner-row";
-        const position = siblings.indexOf(banner);
-        card.draggable = true;
-        card.addEventListener("dragstart",event=>{
-          dragged = banner;
-          event.dataTransfer.setData("text/plain",banner.id);
-          event.dataTransfer.effectAllowed = "move";
-          card.dataset.dragging = "";
-        });
-        card.addEventListener("dragend",()=>{dragged=undefined;delete card.dataset.dragging;});
-        card.addEventListener("dragover",event=>{
-          if (dragged && dragged!==banner && siblings.includes(dragged)) event.preventDefault();
-        });
-        card.addEventListener("drop",event=>{
-          event.preventDefault();
-          move(dragged,banner);
-        });
-        const copy = create("div");
-        const status = bannerStatus(banner,clock());
-        const metric = summarizeLinkBio([banner],demoBioClicks,new Set([banner.account]),start,end,clock()).clicks;
-        const badge = create("span",statuses[status] ?? "Indisponível");
-        badge.className = "bio-status";
-        badge.dataset.status = status ?? "";
-        copy.append(create("h3",(position+1)+". "+banner.name),badge,
-          create("p","Início · "+displayTime(banner.startsAt)+" → Término · "+displayTime(banner.endsAt)),
-          create("p",metric.toLocaleString("pt-BR")+" cliques · "+start.split("-").reverse().join("/")+" a "+end.split("-").reverse().join("/")));
-        if (safeUrl(banner.url)) {
-          const link = create("a","Abrir destino");
-          Object.assign(link,{href:safeUrl(banner.url),target:"_blank",rel:"noopener noreferrer"});
-          copy.append(link);
-        }
-        const controls = create("div");
-        const update = values => commit(items.map(item=>item.id===banner.id ? {...item,...values} : item));
-        controls.append(action("Editar",()=>edit(banner)),action("Visualizar",()=>{
-          const target = document.querySelector("#banner-view");
-          target.querySelector("h2").textContent = banner.name;
-          target.querySelector(".banner-media").replaceChildren(picture(banner));
-          target.querySelector("p").textContent = [statuses[status],banner.title,banner.description,banner.cta].filter(Boolean).join(" · ");
-          target.showModal();
-        }),action("Duplicar",()=>edit(banner,true)),action(banner.state==="published"?"Desativar":"Ativar",()=>update({state:banner.state==="published"?"paused":"published"})));
-        if (safeUrl(banner.url)) controls.append(action("Copiar link",async()=>{
-          try {await navigator.clipboard.writeText(banner.url); message("Link copiado.");}
-          catch {message("Não foi possível copiar o link.");}
-        }));
-        for (const [step,label] of [[-1,"Subir"],[1,"Descer"]]) {
-          const peer = siblings[position+step];
-          const button = action(label,()=>move(banner,peer));
-          button.disabled = !peer;
-          controls.append(button);
-        }
-        controls.append(action("Arquivar",()=>{if(confirm("Arquivar "+banner.name+"? O histórico de cliques será preservado.")) update({state:"archived"});}));
-        card.append(picture(banner),copy,controls);
-        management.append(card);
-      }
-      managerContent.append(management);
+      renderManager(client,siblings,items,move,start,end,now);
     }
   }
   return render;

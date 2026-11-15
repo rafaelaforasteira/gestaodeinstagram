@@ -23,7 +23,7 @@ try {
     }
     const buttons = helpPage.locator(".widget-help:visible");
     const expected = width === 1366 ? 10 : 1;
-    assert.equal(await helpPage.locator(".widget-help").count(),12);
+    assert.equal(await helpPage.locator(".widget-help").count(),13); // 12 widgets da página + ajuda do modal Banners do Link Bio
     const texts = new Set();
     for (let i=0;i<expected;i++) {
       const button = buttons.nth(i);
