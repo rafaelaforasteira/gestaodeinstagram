@@ -985,12 +985,23 @@ body{block-size:100dvh;display:flow-root;overflow:clip}
 main[data-operation="banners"] #banners{display:block}
 .banner-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:var(--gap)}
 .banner-heading h1{margin:0}
+.banner-add-client{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border:0;border-radius:10px;background:var(--brand-orange);color:#242420;font-size:var(--text-body);font-weight:600}
+.banner-add-client svg{width:18px;height:18px;stroke-width:2}
+.banner-add-client:hover{background:color-mix(in srgb,var(--brand-orange) 88%,#242420)}
+.banner-add-client:focus-visible{outline:2px solid var(--orange-ink);outline-offset:3px}
+#banner-client-soon{width:min(420px,calc(100% - 32px));padding:28px 24px 24px;border-radius:20px;text-align:center}
+#banner-client-soon[open]{display:flex;flex-direction:column;align-items:center;gap:12px}
+#banner-client-soon .soon-icon{display:grid;place-items:center;width:56px;height:56px;border-radius:16px;background:var(--orange-soft);color:var(--orange-ink)}
+#banner-client-soon .soon-icon svg{width:24px;height:24px}
+#banner-client-soon .soon-badge{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:9999px;background:var(--warning-bg);color:var(--warning);font-size:var(--text-caption);font-weight:500}
+#banner-client-soon h2{margin:0;font-size:var(--text-section)}
+#banner-client-soon p{margin:0;max-width:34ch;color:var(--muted);font-size:var(--text-body)}
+#banner-client-soon form{float:none;margin:8px 0 0;width:100%}
+#banner-client-soon .soon-ok{width:100%;min-height:40px;border:0;border-radius:10px;background:var(--graphite);color:var(--inverse);font-size:var(--text-body);font-weight:500}
 .banner-primary{background:var(--brand-orange);color:#221810;font-weight:650}
 .banner-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.banner-filters{width:min(500px,100%);margin-bottom:var(--gap)}
 #banner-editor label{display:grid;gap:5px;font-weight:550;min-width:0}
 #banner-editor :is(input:not([type=checkbox]),select,textarea){width:100%;min-width:0;padding:9px 11px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--well);color:var(--text);font:inherit}
-.banner-segments{margin:0}
 .banner-workspace{container-type:inline-size}
 .banner-list{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap);align-items:start;max-width:1920px;margin-inline:auto}
 @container(min-width:610px){.banner-list{grid-template-columns:repeat(2,minmax(0,1fr))}}

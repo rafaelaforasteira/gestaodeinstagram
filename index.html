@@ -243,18 +243,7 @@
           <p class="muted agenda-scope" id="agenda-scope"></p>
         </section>
         <section id="banners" aria-labelledby="banners-title">
-          <header class="banner-heading"><div><h1 id="banners-title">Gestão de Banners</h1><p class="page-summary">Crie, organize e acompanhe os banners do seu Link Bio.</p></div></header>
-          <div class="banner-filters">
-            <div class="banner-segments metric-segments metric-segments-equal" role="radiogroup" aria-label="Status dos banners">
-              <div class="metric-segments-track">
-                <span class="metric-segments-pill" aria-hidden="true"></span>
-                <label class="metric-segment"><input type="radio" name="banner-state" value="live"><span>Ativos</span></label>
-                <label class="metric-segment"><input type="radio" name="banner-state" value="scheduled"><span>Programados</span></label>
-                <label class="metric-segment"><input type="radio" name="banner-state" value="inactive"><span>Inativos</span></label>
-                <label class="metric-segment"><input type="radio" name="banner-state" value="" checked><span>Todos</span></label>
-              </div>
-            </div>
-          </div>
+          <header class="banner-heading"><div><h1 id="banners-title">Gestão de Banners</h1><p class="page-summary">Crie, organize e acompanhe os banners do seu Link Bio.</p></div><button type="button" class="banner-add-client" id="banner-add-client" aria-haspopup="dialog"><svg aria-hidden="true"><use href="#icon-plus"/></svg>Adicionar cliente</button></header>
           <p role="status" class="muted"></p>
           <div class="banner-workspace"><div class="banner-list"></div></div>
         </section>
@@ -272,6 +261,13 @@
     <button type="button" class="bm-icon-button bm-close" data-bm-close aria-label="Fechar gerenciamento"><svg aria-hidden="true"><use href="#icon-x"/></svg></button>
   </header>
   <div class="banner-manager-content"></div>
+</dialog>
+<dialog id="banner-client-soon" aria-labelledby="banner-client-soon-title" aria-describedby="banner-client-soon-text">
+  <span class="soon-icon" aria-hidden="true"><svg><use href="#icon-banners"/></svg></span>
+  <span class="soon-badge">Em construção · No ar em breve</span>
+  <h2 id="banner-client-soon-title">Adicionar cliente</h2>
+  <p id="banner-client-soon-text">Em breve você vai poder conectar o Link Bio do site de um cliente e gerenciar os banners dele por aqui.</p>
+  <form method="dialog"><button class="soon-ok">Entendi</button></form>
 </dialog>
 <dialog id="banner-account-picker" aria-labelledby="banner-account-title"><form method="dialog"><button class="button" aria-label="Fechar seleção de conta">×</button></form><h2 id="banner-account-title">Escolha a conta do cliente</h2><div></div></dialog>
 <dialog id="banner-dialog" class="scroll-region" aria-labelledby="banner-editor-title">

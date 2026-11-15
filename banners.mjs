@@ -1,6 +1,5 @@
 import { createBannerDatePicker } from "./banner-date-picker.mjs";
 import { composerDropdowns } from "./composer.mjs";
-import { connectSegmentIndicator } from "./agenda.mjs";
 import { demo, demoBioBanners, demoBioClicks } from "./demo-data.mjs";
 import { bannerStatus, summarizeLinkBio } from "./analytics.mjs";
 
@@ -21,8 +20,8 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
   const form = document.querySelector("#banner-editor");
   const dialog = form.closest("dialog");
   const list = root.querySelector(".banner-list");
-  const filter = root.querySelector(".banner-segments");
-  connectSegmentIndicator(filter);
+  const soon = document.querySelector("#banner-client-soon");
+  document.querySelector("#banner-add-client").addEventListener("click",()=>soon.showModal());
   const error = form.querySelector("[role=alert]");
   const storageKey = "studio-banners-v1-"+workspace;
   const scope = new Map(accounts.map(account => [account.id,account]));
@@ -286,7 +285,6 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
   });
   form.querySelector(".banner-editor-close").addEventListener("click",()=>dialog.close());
   form.querySelector("[data-cancel-banner]").addEventListener("click",() => dialog.close());
-  filter.addEventListener("change",render);
   // Modal "Banners do Link Bio": lista ordenável + prévia ao vivo.
   // A ordem da lista é a ordem do Link Bio; ações secundárias ficam no menu "Mais ações".
   function renderManager(client,siblings,items,move,start,end,now) {
@@ -562,8 +560,7 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
   function render() {
     const items = sorted();
     const active = items.filter(item => item.state!=="archived");
-    const statusFilter = filter.querySelector(":checked").value;
-    const selected = statusFilter ? active.filter(item => bannerStatus(item,clock())===statusFilter) : active;
+    const selected = active;
     for (const cleanup of scrollCleanups) cleanup();
     scrollCleanups = [];
     list.replaceChildren();
@@ -602,7 +599,7 @@ export function createBannerManager({workspace,accounts,clients,icon,installScro
       header.append(avatar,identity,add,pencil);
       panel.append(header);
       panel.append(create("p","Demonstração · Imagens ilustrativas"));
-      if (!visible.length) panel.append(create("p",siblings.length ? "Nenhum banner neste status." : "Nenhum banner cadastrado."));
+      if (!visible.length) panel.append(create("p","Nenhum banner cadastrado."));
       const surface = create("div");
       surface.className = "banner-scroll-surface";
       const viewport = create("div");
