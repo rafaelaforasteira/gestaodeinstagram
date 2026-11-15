@@ -1308,3 +1308,25 @@ main[data-operation="banners"] #banners{display:block}
   .ac-event{grid-template-columns:32px minmax(0,1fr)}
   .ac-event-side{grid-column:2;justify-content:flex-start}
 }
+
+/* Detalhe de falha: motivo, origem, tentativas e ação de reagendar */
+.failure-panel{display:grid;gap:8px;border-color:color-mix(in srgb,var(--red) 30%,var(--border));background:color-mix(in srgb,var(--red-bg) 50%,var(--card))}
+.failure-panel h3{display:flex;align-items:center;gap:8px;margin:0;color:var(--red)}
+.failure-panel h3 svg{width:18px;height:18px}
+.failure-origin{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.failure-source{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:2px 10px;border-radius:9999px;background:var(--card);border:1px solid var(--border);font-size:var(--text-caption);font-weight:500}
+.failure-source svg{width:14px;height:14px}
+.failure-panel[data-source=meta] .failure-source svg{fill:currentColor;stroke:none;color:#d62476}
+.failure-panel[data-source=automation] .failure-source svg{color:var(--orange-ink)}
+.failure-code{font-family:var(--font-mono);font-size:var(--text-caption);color:var(--muted)}
+.failure-title{font-size:var(--text-card);line-height:1.4}
+.failure-message,.failure-tip{margin:0;font-size:var(--text-body)}
+.failure-label{margin:4px 0 0;font-size:var(--text-caption);font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.failure-attempts{display:grid;gap:6px;margin:0;padding:0 0 0 14px;border-left:2px solid color-mix(in srgb,var(--red) 30%,var(--border));list-style:none}
+.failure-attempts li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;font-size:var(--text-label)}
+.failure-attempts time{color:var(--muted);font-variant-numeric:tabular-nums}
+.failure-tip{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:var(--card)}
+.failure-tip svg{width:16px;height:16px;margin-top:3px;flex:none;color:var(--orange-ink)}
+.failure-demo{margin:0;font-size:var(--text-caption);color:var(--muted)}
+.failure-actions{position:sticky;bottom:calc(-1 * clamp(20px,3vw,40px));display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:4px;padding:12px 0;background:var(--card);border-top:1px solid var(--border)}
+.failure-actions .ac-button{min-height:40px;padding:0 16px}

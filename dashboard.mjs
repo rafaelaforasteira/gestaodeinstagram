@@ -3,7 +3,7 @@ import { renderWidgetHelp } from "./widget-help.mjs";
 import { createAgenda } from "./agenda.mjs";
 import { createComposer } from "./composer.mjs";
 import { destinationName, publicationNetworkBadges, publicationFormatIcons, publicationFormatTag, renderIntelligence } from "./editorial.mjs";
-import { demo, demoBannerClients, demoBannerAccounts, demoEditorialHistory, demoFollowerSnapshot, demoPeriodInsights, demoPublicationDetails, demoSchedules, offsetDay, samples, posts } from "./demo-data.mjs";
+import { demo, demoBannerClients, demoBannerAccounts, demoEditorialHistory, demoFailureDetails, demoFollowerSnapshot, demoPeriodInsights, demoPublicationDetails, demoSchedules, offsetDay, samples, posts } from "./demo-data.mjs";
 import { accountsInScope, completeTotal, percentChange, selectPeriods, selectActiveSchedules, sum } from "./analytics.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -302,7 +302,7 @@ function renderAttention(accounts) {
       const account = byAccount.get(post.account);
       if (!account || post.status !== "Falha") continue;
       const at = post.scheduledAt ?? post.date+"T"+post.hour+":00-03:00";
-      alerts.push({kind:"publication",key:"publication:"+post.account+":"+post.id+":"+at,title:"Falha na publicação",name:post.title,
+      alerts.push({kind:"publication",key:"publication:"+post.account+":"+post.id+":"+at,post,title:"Falha na publicação",name:post.title,
         format:post.format,client:clientName(account.client),account:account.name,at,status:"Falha"});
     }
     if (appliedFilters.account === "all") {
@@ -450,7 +450,7 @@ function renderAttentionCenter() {
     primary.insertAdjacentHTML("afterbegin",icon(alert.kind === "connection" ? "refresh" : "eye"));
     primary.addEventListener("click",() => alert.kind === "connection" ?
       openSoon("Reconectar conta","A reconexão de contas do Instagram ainda está em construção. Quando estiver pronta, este botão vai abrir a autorização da Meta para " + alert.name + ".") :
-      openDialog(alert.name,[alert.title,alert.format,alert.client,alert.account,when,"Estado: "+alert.status,isDemo ? "Dados de demonstração." : ""].filter(Boolean)));
+      openFailureDetail(alert.post,alert.key));
     const toggle = el("button","ac-button ac-button-ghost",resolved ? "Reabrir" : "Resolvido");
     toggle.type = "button";
     toggle.insertAdjacentHTML("afterbegin",icon(resolved ? "rotate-ccw" : "check"));
@@ -763,7 +763,28 @@ function refresh() {
   $("scope-status").textContent = "Indicadores atualizados para " + formatDate(selected.start) + " a " + formatDate(selected.end) + ".";
 }
 
-function openAgendaDetail(post) {
+// Motivo da falha: fixture identificada na demonstração; com dados reais virá do job e da resposta da API.
+const failureFor = post => isDemo ? demoFailureDetails[post.account + ":" + post.title] : undefined;
+const formatKeys = {Reel:"reel",Carrossel:"carousel",Imagem:"feed",Feed:"feed",Story:"story"};
+
+// Abre o compositor preenchido com a publicação que falhou, num horário futuro sugerido.
+function retryPublication(post, failure, alertKey) {
+  const original = post.scheduledAt ?? post.date + "T" + post.hour + ":00-03:00";
+  const time = new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(original));
+  const now = isDemo ? Date.parse(demo.now) : Date.now();
+  let day = today;
+  if (Date.parse(day + "T" + time + ":00-03:00") <= now) day = offsetDay(day,1);
+  const covers = (post.media ?? demoPublicationDetails[post.id]?.media ?? [post.cover]).filter(cover => ["aurora","texturas"].includes(cover));
+  const account = scopedAccounts.find(item => item.id === post.account);
+  composer({client:account?.client, account:post.account, day, time, retryOf:alertKey,
+    stage:failure?.fixStage ?? 4,
+    notice:failure?.retryable === false ? "Corrija o que causou a falha antes de reagendar: " + failure.suggestion :
+      "Dados da publicação original carregados. Confira o novo horário e confirme.",
+    prefill:{format:formatKeys[post.format], title:post.title, caption:post.caption ?? failure?.caption ?? demoPublicationDetails[post.id]?.caption ?? "",
+      covers:failure?.retryable === false ? [] : covers}});
+}
+
+function openAgendaDetail(post, extra = {}) {
   const dialog = $("dialog");
   const title = $("dialog-title");
   title.textContent = post.title || post.format + " sem título";
@@ -855,7 +876,10 @@ function openAgendaDetail(post) {
   const captionTitle = el("h3","","Legenda");
   captionTitle.insertAdjacentHTML("afterbegin",icon("posts"));
   copy.append(captionTitle,el("p","",caption));
-  details.append(title,badges,rows,copy);
+  const failure = status === "Falha" ? (extra.failure ?? failureFor(post) ?? null) : null;
+  details.append(title,badges);
+  if (status === "Falha") details.append(failurePanel(failure));
+  details.append(rows,copy);
   if (destinations.length) {
     const history = el("section","agenda-detail-panel");
     history.append(el("h3","",isDemo ? "Destinos demonstrativos" : "Detalhes dos destinos"));
@@ -876,6 +900,21 @@ function openAgendaDetail(post) {
     links.append(heading,el("p","",isDemo ? "Link indisponível na demonstração." : "Link oficial indisponível."));
     details.append(links);
   }
+  if (status === "Falha") {
+    const bar = el("div","failure-actions");
+    const retry = el("button","ac-button ac-button-primary",failure?.retryable === false ? "Corrigir e reagendar" : "Tentar novamente");
+    retry.type = "button";
+    retry.insertAdjacentHTML("afterbegin",icon("refresh"));
+    retry.addEventListener("click",() => {
+      dialog.close();
+      retryPublication(post,failure,extra.alertKey);
+    });
+    const close = el("button","ac-button","Fechar");
+    close.type = "button";
+    close.addEventListener("click",() => dialog.close());
+    bar.append(close,retry);
+    details.append(bar);
+  }
   $("dialog-content").replaceChildren(preview,details);
   dialog.dataset.agendaDetail = "";
   dialog.showModal();
@@ -884,6 +923,54 @@ function openAgendaDetail(post) {
     if (mediaUrl) URL.revokeObjectURL(mediaUrl);
     frame.replaceChildren();
   },{once:true});
+}
+
+function failurePanel(failure) {
+  const el = scheduleElement;
+  const panel = el("section","agenda-detail-panel failure-panel");
+  panel.dataset.source = failure?.source ?? "unknown";
+  const heading = el("h3","","Motivo da falha");
+  heading.insertAdjacentHTML("afterbegin",icon("circle-alert"));
+  panel.append(heading);
+  if (!failure) {
+    panel.append(el("p","","A fonte não informou o motivo desta falha."));
+    return panel;
+  }
+  const origin = el("div","failure-origin");
+  const source = el("span","failure-source",failure.sourceLabel);
+  source.insertAdjacentHTML("afterbegin",icon(failure.source === "automation" ? "pulse" : "brand-instagram"));
+  origin.append(source,el("code","failure-code",failure.code));
+  panel.append(origin,el("strong","failure-title",failure.title),el("p","failure-message",failure.message));
+  if (failure.attempts?.length) {
+    const time = new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    const list = el("ol","failure-attempts");
+    list.setAttribute("aria-label","Tentativas de publicação");
+    for (const attempt of failure.attempts) {
+      const item = el("li");
+      const when = el("time","",time.format(new Date(attempt.at)));
+      when.dateTime = attempt.at;
+      item.append(when,el("span","",attempt.result));
+      list.append(item);
+    }
+    panel.append(el("p","failure-label",failure.attempts.length === 1 ? "1 tentativa" : failure.attempts.length + " tentativas"),list);
+  }
+  const tip = el("p","failure-tip",failure.suggestion);
+  tip.insertAdjacentHTML("afterbegin",icon(failure.retryable ? "refresh" : "triangle-alert"));
+  panel.append(tip);
+  if (isDemo) panel.append(el("p","failure-demo","Motivo fictício · Dados de demonstração"));
+  return panel;
+}
+
+// Detalhe de uma publicação com falha, aberto pela Central de atividades.
+function openFailureDetail(post, alertKey) {
+  const at = post.scheduledAt ?? post.date + "T" + post.hour + ":00-03:00";
+  const timeOf = new Intl.DateTimeFormat("pt-BR",{timeZone:timezone,hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
+  const account = scopedAccounts.find(item => item.id === post.account);
+  openAgendaDetail({...post, status:"Falha", day:dateKey.format(new Date(at)), time:timeOf.format(new Date(at)),
+    clientName:post.clientName ?? scopedClients.find(client => client.id === account?.client)?.name,
+    caption:post.caption ?? failureFor(post)?.caption,
+    destinations:(post.destinations?.length ? post.destinations : [{platform:"instagram",scheduledAt:at}]).map(item => ({...item,status:"Falha"}))},
+    {alertKey});
 }
 
 function openDialog(title, paragraphs) {
@@ -1289,7 +1376,11 @@ document.addEventListener("click",(event) => {
         ...(post.caption ? ["Legenda: "+post.caption] : [])]);
     }
   }
-  if (button.dataset.post) {
+  if (button.dataset.post && button.dataset.status === "Falha") {
+    const post = posts.find(({id}) => id===Number(button.dataset.post));
+    const alert = attentionAlerts.find(item => item.post?.account === post?.account && item.post?.id === post?.id);
+    if (post) openFailureDetail(alert?.post ?? post, alert?.key);
+  } else if (button.dataset.post) {
     const post=posts.find(({id}) => id===Number(button.dataset.post));
     if (post && isDemo) openDialog(post.title,[post.format+" · "+accountName(post.account),
       statusText[post.status]+" · "+formatDate(post.date)+" às "+post.hour,
@@ -1306,6 +1397,7 @@ const composer = createComposer({isDemo,workspace:activeWorkspace?.id,today,now:
   onSchedule(post) {
     if (!isDemo || !accountsFor(scopedAccounts.find(a=>a.id===post.account)?.client,post.account).length) throw new Error("Destino inválido");
     if (!scheduleRecords.some(item=>item.occurrence===post.occurrence)) scheduleRecords.push(post);
+    if (post.retryOf) { resolvedAlerts.add(post.retryOf); saveResolved(); }
     const day = dateKey.format(new Date(post.scheduledAt));
     if (day>calendarMax) calendarMax=day;
     refresh();

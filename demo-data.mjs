@@ -110,7 +110,7 @@ demoSchedules.push(...[
   ["casa","Texturas do ateliê","Carrossel","10:00","texturas",undefined,-4,"Publicado"],
   ["aurora","Joias em movimento","Reel","10:00","aurora",undefined,-4,"Publicado"],
   ["aurora","Detalhes da coleção","Imagem","14:30","aurora",undefined,-3,"Publicado"],
-  ["casa","Enquete de cores","Story","15:00",undefined,undefined,-2,"Falha"],
+  ["casa","Enquete de cores","Story","15:00","texturas",undefined,-2,"Falha"],
   ["casa","Preparação do ensaio","Imagem","13:00","texturas",undefined,-1,"Publicado"],
   ["aurora","Bastidores da madrugada","Story","02:15",undefined,undefined,1],
   ["casa","Novas composições","Carrossel","15:30","texturas",undefined,1],
@@ -145,6 +145,34 @@ export const demoPublicationDetails = {
     destinations:[{account:"casa", publishedAt:"2026-11-06T12:40:00-03:00"}] },
   5: { caption:"A primeira luz do dia, em três tons.", media:["aurora"],
     destinations:[{account:"aurora", scheduledAt:"2026-11-04T11:00:00-03:00", publishedAt:"2026-11-04T15:20:00-03:00"}] },
+};
+
+// Motivos de falha fictícios, um por origem: recusa da Meta (corrigir antes) e falha da automação (pode repetir).
+// Chave: conta + título. Com dados reais, o motivo vem do job e da resposta da API.
+export const demoFailureDetails = {
+  "casa:Detalhes da coleção": {
+    source:"meta", sourceLabel:"Instagram · API da Meta", code:"MEDIA_INVALID", retryable:false, fixStage:3,
+    title:"O Instagram recusou o vídeo",
+    message:"O vídeo enviado tem proporção 1:1. Reels precisam de vídeo vertical na proporção 9:16.",
+    suggestion:"Envie um vídeo vertical 9:16 e reagende. O vídeo antigo não será reutilizado.",
+    caption:"Os detalhes que fazem a diferença: acabamento à mão e fecho reforçado.\n\n#casanova #detalhes",
+    attempts:[
+      {at:"2026-11-05T18:00:04-03:00", result:"Contêiner de mídia criado na Meta"},
+      {at:"2026-11-05T18:00:39-03:00", result:"Recusado pela Meta: mídia incompatível com Reels"},
+    ],
+  },
+  "casa:Enquete de cores": {
+    source:"automation", sourceLabel:"Automação do Social Studio", code:"WORKER_TIMEOUT", retryable:true, fixStage:4,
+    title:"A automação não executou a publicação",
+    message:"O serviço de publicação não respondeu no horário. As 3 tentativas automáticas falharam e nada foi enviado ao Instagram.",
+    suggestion:"Pode tentar novamente: como nada foi enviado, não há risco de publicação duplicada.",
+    caption:"Qual dessas cores combina mais com você? Vote na enquete!",
+    attempts:[
+      {at:"2026-11-04T15:00:00-03:00", result:"Sem resposta do serviço de publicação"},
+      {at:"2026-11-04T15:02:00-03:00", result:"Sem resposta do serviço de publicação"},
+      {at:"2026-11-04T15:06:00-03:00", result:"Sem resposta · tentativas automáticas esgotadas"},
+    ],
+  },
 };
 
 // Additional publications for the two editorial widgets in demo mode.

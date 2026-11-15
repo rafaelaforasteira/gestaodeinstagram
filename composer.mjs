@@ -156,6 +156,19 @@ async function draftStorage(key,action,value) {
   } finally { db.close(); }
 }
 
+async function coverFile(name, title, format) {
+  const image = new Image();
+  image.src = "./" + name + ".svg";
+  await image.decode();
+  const canvas = document.createElement("canvas");
+  [canvas.width, canvas.height] = format === "story" || format === "reel" ? [1080,1920] : [1080,1350];
+  const scale = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+  const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+  canvas.getContext("2d").drawImage(image,(canvas.width-width)/2,(canvas.height-height)/2,width,height);
+  const blob = await new Promise(resolve => canvas.toBlob(resolve,"image/png"));
+  return new File([blob],(title || name) + ".png",{type:"image/png"});
+}
+
 export function createComposer({isDemo,workspace,today,now,timezone,clients,accountsFor,icon,onSchedule,onView}) {
   const modal = document.getElementById("composer");
   const body = modal.querySelector(".composer-body");
@@ -389,7 +402,7 @@ export function createComposer({isDemo,workspace,today,now,timezone,clients,acco
       else {
         const scheduledAt=scheduledInstant(state.day,state.time,timezone);
         const occurrence="composer-"+state.id;
-        onSchedule({id:occurrence,occurrence,account:account().id,title:state.title.trim()||format().name+" sem título",caption:state.caption,
+        onSchedule({id:occurrence,occurrence,retryOf:slot?.retryOf,account:account().id,title:state.title.trim()||format().name+" sem título",caption:state.caption,
           clientName:client().name,format:format().record,status:"Agendado",scheduledAt,media:[...state.media],
           destinations:[{platform:state.platform,scheduledAt,status:"Agendado"}]});
         // The fixture is already visible in this session. Draft cleanup is best effort.
@@ -525,8 +538,22 @@ export function createComposer({isDemo,workspace,today,now,timezone,clients,acco
     stage=furthest=previewIndex=0;
     dirty=false;result=null;recovered=null;
     state=blank(context);month=(state.day<today?today:state.day).slice(0,7);
-    modal.showModal();report("");render();
-    if(isDemo&&key) {
+    // Reagendamento: abre com os dados da publicação original e na etapa que precisa de atenção.
+    const prefill=context.prefill;
+    if(prefill) {
+      Object.assign(state,{platform:"instagram",format:Object.hasOwn(formats,prefill.format)?prefill.format:"",
+        caption:prefill.caption??"",title:prefill.title??"",category:prefill.category??"",mode:"schedule"});
+      stage=furthest=Math.min(Math.max(Number(context.stage)||0,0),5);
+      pending=true;
+      try {
+        const files=await Promise.all((prefill.covers??[]).map(cover=>coverFile(cover,prefill.title,state.format)));
+        if(current!==session) return;
+        state.media=files.filter(file=>!mediaError(file)).slice(0,format()?.max??1);
+      } catch { state.media=[]; }
+      finally { pending=false; }
+    }
+    modal.showModal();report(context.notice??"");render();
+    if(isDemo&&key&&!prefill) {
       try {
         const draft=await draftStorage(key,"get");
         if(current!==session||!modal.open||dirty||!draft) return;
