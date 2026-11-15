@@ -1028,7 +1028,14 @@ main[data-operation="banners"] #banners{display:block}
 .bm-head{display:flex;align-items:center;gap:16px;padding:24px 24px 16px}
 .bm-avatar{width:44px;height:44px;font-size:18px;font-weight:600}
 .bm-title{min-width:0;flex:1}
-.bm-title [data-help-header]{display:flex;align-items:center;gap:8px}
+/* Ajuda do modal: botão do mesmo tamanho do Fechar, logo à esquerda dele */
+#banner-manager .bm-head.widget-help-heading{position:static;padding-inline-end:24px}
+#banner-manager .bm-head .widget-help{position:static;transform:none;order:1;width:40px;height:40px;flex:none;border-radius:10px;background:var(--well);color:var(--text)}
+#banner-manager .bm-head .widget-help>span{width:auto;height:auto;border:0;background:transparent}
+#banner-manager .bm-head .widget-help svg{width:20px;height:20px;stroke-width:2}
+#banner-manager .bm-head .widget-help:is(:hover,[aria-expanded="true"]){background:var(--border)}
+#banner-manager .bm-head .widget-help:focus-visible{outline:2px solid var(--orange-ink);outline-offset:2px}
+.bm-head .bm-close{order:2;margin-left:-8px}
 #banner-manager .bm-title h2{margin:0;font-size:var(--text-section);line-height:26px;font-weight:600;letter-spacing:-.015em}
 .bm-title p{margin:2px 0 0;font-size:var(--text-label);line-height:18px;overflow-wrap:anywhere}
 .bm-icon-button{width:40px;height:40px;flex:none;display:grid;place-items:center;border:0;border-radius:10px;background:transparent;color:var(--muted)}

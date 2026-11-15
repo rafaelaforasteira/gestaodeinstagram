@@ -404,6 +404,11 @@ try {
   await shell.locator("xpath=self::*[@data-fade-top='false' and @data-fade-bottom='true']").waitFor();
   await scrollPage.locator(".workspace").evaluate(pane => {pane.scrollTop = pane.scrollHeight/3;});
   await indicator.locator("xpath=self::*[@data-visible='true']").waitFor();
+  // O indicador pode seguir visível da rolagem anterior: espera a linha sair do topo antes de medir.
+  await scrollPage.waitForFunction(() => {
+    const thumb = document.querySelector(".content-shell > .scroll-indicator span").getBoundingClientRect();
+    return thumb.top > document.querySelector(".workspace").getBoundingClientRect().top + 1;
+  });
   const handle = await indicator.locator("span").boundingBox();
   await scrollPage.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);
   const oldPosition = await scrollPage.locator(".workspace").evaluate(pane => pane.scrollTop);
