@@ -245,15 +245,19 @@ th{font-size:inherit}
 }
 .kpi-heading,.kpi-comparison{display:flex;align-items:center;gap:7px}
 .kpi-heading h3{font-size:14px;font-weight:550;margin:0}
-.widget-help-heading{position:relative;padding-inline-end:36px;min-block-size:24px}
-.widget-help{position:absolute;inset-inline-end:0;inset-block-start:50%;transform:translateY(-50%);display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--text);cursor:pointer}
-.widget-help > span{display:grid;place-items:center;width:24px;height:24px;border:1px solid var(--border);border-radius:50%;background:var(--well)}
-.widget-help svg,.kpi-heading .widget-help svg{width:14px;height:14px;vertical-align:middle}
-.widget-help:is(:hover,[aria-expanded="true"]) > span{background:var(--card)}
-.widget-help:focus-visible{outline:2px solid currentColor;outline-offset:-2px}
+/* Ajuda contextual — padrão único (guias Ajuda contextual + Lucide):
+   CircleHelp 20px, traço 1.75, sem anel; alvo 40×40 (44×44 no toque); raio 10px; canto superior direito do cabeçalho. */
+.widget-help-heading{position:relative;padding-inline-end:44px;min-block-size:24px}
+.widget-help{position:absolute;inset-inline-end:-8px;inset-block-start:50%;transform:translateY(-50%);display:grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer;transition:background-color 120ms ease,color 120ms ease}
+.widget-help>span{display:contents}
+.widget-help svg,:is(.kpi-heading,.card,.editorial-card,.ac-card,.bm-head) .widget-help svg{width:20px;height:20px;stroke-width:1.75}
+.widget-help:is(:hover,[aria-expanded="true"]){background:var(--well);color:var(--text)}
+.widget-help:focus-visible{outline:2px solid var(--orange-ink);outline-offset:2px}
 .metric .widget-help{color:var(--kpi-ink)}
-.metric .widget-help > span{background:#fff2;border-color:currentColor}
-.metric .widget-help:is(:hover,[aria-expanded="true"]) > span{background:#fff5}
+.metric .widget-help:is(:hover,[aria-expanded="true"]){background:#ffffff40;color:var(--kpi-ink)}
+.metric .widget-help:focus-visible{outline-color:var(--kpi-ink)}
+@media(pointer:coarse){.widget-help,#banner-manager .bm-icon-button{width:44px;height:44px}.widget-help{inset-inline-end:-10px}}
+@media(prefers-reduced-motion:reduce){.widget-help{transition:none}}
 .widget-help-panel{position:fixed;inset:auto;margin:0;box-sizing:border-box;width:min(300px,calc(100vw - 16px));max-height:calc(100dvh - 16px);overflow:auto;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--card);color:var(--text);box-shadow:0 6px 20px #0003;font-size:var(--text-caption);line-height:1.5;opacity:0;transform:translateY(2px);transition:opacity 150ms ease,transform 150ms ease,display 150ms allow-discrete,overlay 150ms allow-discrete}
 .widget-help-panel:popover-open{opacity:1;transform:none}
 @starting-style{.widget-help-panel:popover-open{opacity:0;transform:translateY(2px)}}
@@ -1036,13 +1040,9 @@ main[data-operation="banners"] #banners{display:block}
 .bm-head{display:flex;align-items:center;gap:16px;padding:24px 24px 16px}
 .bm-avatar{width:44px;height:44px;font-size:18px;font-weight:600}
 .bm-title{min-width:0;flex:1}
-/* Ajuda do modal: botão do mesmo tamanho do Fechar, logo à esquerda dele */
+/* Ajuda em janelas: mesmo padrão, logo à esquerda do Fechar */
 #banner-manager .bm-head.widget-help-heading{position:static;padding-inline-end:24px}
-#banner-manager .bm-head .widget-help{position:static;transform:none;order:1;width:40px;height:40px;flex:none;border-radius:10px;background:var(--well);color:var(--text)}
-#banner-manager .bm-head .widget-help>span{width:auto;height:auto;border:0;background:transparent}
-#banner-manager .bm-head .widget-help svg{width:20px;height:20px;stroke-width:2}
-#banner-manager .bm-head .widget-help:is(:hover,[aria-expanded="true"]){background:var(--border)}
-#banner-manager .bm-head .widget-help:focus-visible{outline:2px solid var(--orange-ink);outline-offset:2px}
+#banner-manager .bm-head .widget-help{position:static;transform:none;order:1;flex:none}
 .bm-head .bm-close{order:2;margin-left:-8px}
 #banner-manager .bm-title h2{margin:0;font-size:var(--text-section);line-height:26px;font-weight:600;letter-spacing:-.015em}
 .bm-title p{margin:2px 0 0;font-size:var(--text-label);line-height:18px;overflow-wrap:anywhere}

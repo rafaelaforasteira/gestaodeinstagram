@@ -2,7 +2,17 @@
 
 ## Ajuda contextual dos widgets
 
-Consulte a [guia oficial de ajuda contextual](https://docs.google.com/document/d/1q9ySzYvNYcAoEiqcuOkW96SIwdAcrW4hQEAKEd45v70/edit?tab=t.89m0nghs2990). Registre cada widget informativo em `widget-help.mjs` pelo ID do título. Use um único botão circular no canto superior direito e mantenha os detalhes de pontos, séries e células nos seus próprios controles.
+Consulte a [guia oficial de ajuda contextual](https://docs.google.com/document/d/1q9ySzYvNYcAoEiqcuOkW96SIwdAcrW4hQEAKEd45v70/edit?tab=t.89m0nghs2990). Registre cada widget informativo em `widget-help.mjs` pelo ID do título. Mantenha os detalhes de pontos, séries e células nos seus próprios controles.
+
+**Padrão visual único do botão de ajuda (`.widget-help`)** — vale para todo widget, card de indicador, coluna e janela:
+
+- Ícone Lucide `CircleHelp`, 20px, traço 1.75, sem anel, borda ou fundo extra em volta do ícone.
+- Área de clique 40×40px no desktop e 44×44px no toque; raio 10px, igual aos demais controles.
+- Repouso: fundo transparente e cor de texto secundário (`--muted`). Hover, foco e ajuda aberta: fundo `--well` e cor de texto principal.
+- Em cards laranja (KPIs): ícone grafite (`--kpi-ink`) e hover com branco a 25%.
+- Foco do teclado: contorno de 2px em `--orange-ink`, afastado 2px.
+- Posição: canto superior direito do cabeçalho, centralizado com o título, com o ícone alinhado à margem interna do card. Em janelas, à esquerda do botão Fechar, a 8px dele e com o mesmo tamanho.
+- Nunca criar variações locais de tamanho, cor ou formato: ajuste o componente compartilhado.
 
 Revise a descrição sempre que mudarem a métrica, a origem, o filtro, o período, o status ou a agregação. Valide texto, foco, Escape, toque, contraste nos dois temas e limites da viewport antes de concluir um widget.
 
