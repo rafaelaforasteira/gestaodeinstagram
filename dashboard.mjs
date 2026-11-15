@@ -1,5 +1,6 @@
 import { createBannerManager } from "./banners.mjs";
 import { renderWidgetHelp } from "./widget-help.mjs";
+import { renderPerformance, showPerformance } from "./performance.mjs";
 import { createAgenda } from "./agenda.mjs";
 import { createComposer } from "./composer.mjs";
 import { destinationName, publicationNetworkBadges, publicationFormatIcons, publicationFormatTag, renderIntelligence } from "./editorial.mjs";
@@ -736,6 +737,12 @@ function refresh() {
   renderEditorial(data);
   renderAttention(data.accounts);
   renderTable();
+  const periodText = selected.start === selected.end ? formatDate(selected.start) : formatDate(selected.start) + " a " + formatDate(selected.end);
+  renderPerformance({accounts:data.accounts,start:selected.start,end:selected.end,isDemo,
+    scopeLabel:[scopedClients.find(({id}) => id === appliedFilters.client)?.name ?? "Todos os clientes",
+      data.accounts.find(({id}) => id === appliedFilters.account)?.name ?? (data.accounts.length + (data.accounts.length === 1 ? " conta" : " contas")),
+      periodText].join(" · "),
+    onPeriod:period => { appliedFilters = {...appliedFilters,period}; refresh(); }});
   agenda.setScope(data.accounts, [
     demo.clients.find(client => client.id === appliedFilters.client)?.name ?? "Todos os clientes",
     data.accounts.find(account => account.id === appliedFilters.account)?.name ?? "Todas as redes",
@@ -752,9 +759,12 @@ function refresh() {
   const badge = $("filter-count");
   if (count) badge.textContent = count;
   badge.dataset.active = String(count > 0);
-  $("filter-trigger").setAttribute("aria-label", count
-    ? "Filtrar resultados, " + count + (count === 1 ? " filtro ativo" : " filtros ativos")
-    : "Filtrar resultados");
+  const filterLabel = count ? "Filtrar resultados, " + count + (count === 1 ? " filtro ativo" : " filtros ativos") : "Filtrar resultados";
+  $("filter-trigger").setAttribute("aria-label", filterLabel);
+  // O Desempenho tem o próprio botão de filtro, com o mesmo estado do filtro global.
+  $("perf-filter-trigger").setAttribute("aria-label", filterLabel);
+  $("perf-filter-count").textContent = count || "";
+  $("perf-filter-count").dataset.active = String(count > 0);
   for (const [key,value] of Object.entries({workspace:activeWorkspace?.id,client,account,period,
     start:period==="custom"?selected.start:"",end:period==="custom"?selected.end:""})) {
     if (value) query.set(key,value); else query.delete(key);
@@ -1028,7 +1038,7 @@ const filterPanel = $("filter-panel");
 const filterTrigger = $("filter-trigger");
 const agendaFilterTrigger = $("agenda-filter-trigger");
 const isAgendaRoute = () => location.hash === "#agenda";
-const currentFilterTrigger = () => isAgendaRoute() ? agendaFilterTrigger : filterTrigger;
+const currentFilterTrigger = () => isAgendaRoute() ? agendaFilterTrigger : location.hash === "#performance" ? $("perf-filter-trigger") : filterTrigger;
 const filterForm = $("scope");
 const clientChoices = [{id:"all",name:"Todos os clientes"},...scopedClients];
 let accountChoices = [];
@@ -1427,7 +1437,7 @@ function updateNavigation() {
   const current=location.hash || "#overview-top";
   const route = current.slice(1);
   const main = document.querySelector(".workspace main");
-  main.dataset.operation = ["activities","agenda","attention","banners"].includes(route) ? route : "";
+  main.dataset.operation = ["activities","agenda","attention","banners","performance"].includes(route) ? route : "";
   $("overview-heading").hidden = route === "agenda";
   $("agenda-heading").hidden = route !== "agenda";
   $("overview-top").setAttribute("aria-labelledby",route === "agenda" ? "agenda-page-title" : "greeting");
@@ -1435,6 +1445,7 @@ function updateNavigation() {
   agenda.setClockActive(route === "agenda");
   if (route === "agenda") agenda.render();
   if (route === "banners") renderBanners();
+  if (route === "performance") showPerformance();
   if (route === "attention" || route === "activities") showActivityView(route === "attention" ? "attention" : document.querySelector(".activity-center-grid").dataset.view);
   if (main.dataset.operation || route === "overview-top") contentViewport.scrollTo({top:0,behavior:"instant"});
   else $(route)?.scrollIntoView();
@@ -1444,6 +1455,13 @@ function updateNavigation() {
   });
 }
 window.addEventListener("hashchange",updateNavigation);
+// Atalhos internos do Desempenho rolam até a seção sem trocar a rota.
+for (const link of document.querySelectorAll("[data-perf-jump]")) {
+  link.addEventListener("click",event => {
+    event.preventDefault();
+    document.querySelector(link.getAttribute("href"))?.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",block:"start"});
+  });
+}
 updateNavigation();
 
 const sideMenu = $("side-menu");

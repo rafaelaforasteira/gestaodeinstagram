@@ -180,7 +180,7 @@
           <div class="scheduled-viewport"><div id="scheduled-list" class="scheduled-list" role="region" aria-label="Lista de posts programados" tabindex="0" aria-busy="true"><p class="sr-only">Carregando posts programados.</p><div class="scheduled-skeleton" aria-hidden="true"></div><div class="scheduled-skeleton" aria-hidden="true"></div><div class="scheduled-skeleton" aria-hidden="true"></div></div></div>
           <footer><a href="#agenda">Ver agenda completa <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></a></footer>
         </section>
-        <section class="card consistency-widget" id="performance" aria-labelledby="progress-title">
+        <section class="card consistency-widget" id="consistency-card" aria-labelledby="progress-title">
           <header><h2 id="progress-title"><svg aria-hidden="true"><use href="#icon-calendar"/></svg>Consistência editorial</h2>
           <p class="muted">Acompanhe sua frequência de publicações realizadas.</p></header>
           <div id="consistency"></div>
@@ -268,6 +268,30 @@
             <div id="agenda-content" role="region"></div>
           </div>
           <p class="muted agenda-scope" id="agenda-scope"></p>
+        </section>
+        <section class="performance-page" id="performance" aria-labelledby="performance-title">
+          <header class="activity-center-heading performance-heading">
+            <span class="activity-center-icon" aria-hidden="true"><svg><use href="#icon-chart"/></svg></span>
+            <div><h1 id="performance-title">Desempenho</h1><p class="page-summary">Métricas do Instagram fornecidas pela API da Meta para as contas e o período selecionados.</p></div>
+            <button class="icon-button filter-trigger" id="perf-filter-trigger" type="button" popovertarget="filter-panel" aria-label="Filtrar resultados" title="Filtrar resultados"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.223 7.989A2 2 0 0 1 10 14z"/></svg><span id="perf-filter-count" class="filter-count" aria-hidden="true"></span></button>
+          </header>
+          <p class="perf-scope muted" id="perf-scope"></p>
+          <nav class="perf-nav" aria-label="Seções do Desempenho"><a href="#perf-overview" data-perf-jump>Visão geral</a><a href="#perf-views" data-perf-jump>Visualizações</a><a href="#perf-interactions" data-perf-jump>Interações</a><a href="#perf-followers" data-perf-jump>Seguidores</a><a href="#perf-audience" data-perf-jump>Público</a><a href="#perf-content" data-perf-jump>Conteúdos</a></nav>
+          <div id="performance-body" class="performance-body">
+            <section class="card perf-section" id="perf-overview" aria-labelledby="perf-overview-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-overview-title">Visão geral</h2></div><p class="muted">Totais do período e variação em relação ao período anterior de mesma duração.</p></header><div class="perf-section-body"></div></section>
+            <section class="card perf-section" id="perf-views" aria-labelledby="perf-views-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-views-title">Visualizações</h2></div><p class="muted">Quantas vezes seus conteúdos foram exibidos, por dia, por público e por tipo.</p></header><div class="perf-section-body"></div></section>
+            <section class="card perf-section" id="perf-interactions" aria-labelledby="perf-interactions-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-interactions-title">Interações</h2></div><p class="muted">Curtidas, comentários, salvamentos, compartilhamentos, reposts e respostas.</p></header><div class="perf-section-body"></div></section>
+            <section class="card perf-section" id="perf-followers" aria-labelledby="perf-followers-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-followers-title">Seguidores</h2></div><p class="muted">Total atual, novos seguidores e deixaram de seguir no período.</p></header><div class="perf-section-body"></div></section>
+            <section class="card perf-section" id="perf-audience" aria-labelledby="perf-audience-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-audience-title">Público</h2></div><p class="muted">Idade, gênero, localização e horários ativos.</p></header><div class="perf-section-body"></div></section>
+            <section class="card perf-section" id="perf-content" aria-labelledby="perf-content-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-content-title">Conteúdos</h2></div><p class="muted">Métricas de cada publicação do período.</p></header><div class="perf-section-body"></div></section>
+            <section class="card perf-section perf-about" aria-labelledby="perf-about-title"><h2 id="perf-about-title">Sobre os dados</h2><ul>
+              <li>Fonte: API de Insights do Instagram (Meta). Na demonstração, todos os números são fictícios.</li>
+              <li>Impressões, reproduções e cliques de contato (e-mail, telefone, rota) foram descontinuados pela Meta e não aparecem aqui. Visualizações substitui impressões.</li>
+              <li>Público e seguidores ganhos ou perdidos só são informados para contas com 100 seguidores ou mais.</li>
+              <li>Stories ficam disponíveis na API por 24 horas. O histórico depende de a plataforma coletar os dados enquanto o Story está no ar.</li>
+              <li>Métricas marcadas "A validar" precisam ser confirmadas na versão fixada da API antes da integração real.</li>
+            </ul></section>
+          </div>
         </section>
         <section id="banners" aria-labelledby="banners-title">
           <header class="banner-heading"><div><h1 id="banners-title">Gestão de Banners</h1><p class="page-summary">Crie, organize e acompanhe os banners do seu Link Bio.</p></div><button type="button" class="banner-add-client" id="banner-add-client" aria-haspopup="dialog"><svg aria-hidden="true"><use href="#icon-plus"/></svg>Adicionar cliente</button></header>

@@ -78,6 +78,10 @@ Rota `#activities`; `#attention` abre a mesma página com a coluna de atenção 
 - No celular, as duas colunas viram as abas Atenção e Histórico.
 - Avisos por WhatsApp e e-mail aparecem como "Em breve" e dependem da automação de mensagens.
 
+## Desempenho
+
+Rota `#performance`. Segue o filtro global (cliente, conta, período) e tem o próprio botão de filtro. Seções: Visão geral, Visualizações, Interações, Seguidores, Público e Conteúdos, cada uma com ajuda contextual; atalhos no topo rolam até a seção sem trocar a rota. Períodos menores que 7 dias mostram totais e oferecem "Ver últimos 30 dias" para a evolução diária. Público só aparece com uma conta selecionada. Gráficos são desenhados na largura real da seção (eixos em 12px), têm hover e tabela de dados. Cores: laranja para a série principal, grafite para comparação, cores fixas por tipo (Reels, Posts, Stories). O catálogo de métricas e o status de cada uma estão em `docs/integrations/meta-insights.md`.
+
 ## Gestão de Banners — Link Bio
 
 A rota `#banners` usa os clientes e as contas do workspace demonstrativo. O editor salva dados por workspace no navegador, valida destinos HTTPS e imagens JPEG, PNG e WebP de até 1 MB, com dimensões de 32 a 4096 px. A programação usa o horário de Brasília e o relógio da demonstração. A prévia inclui somente banners no ar e preserva a proporção das imagens.
