@@ -1,5 +1,13 @@
 # Tipografia dos componentes
 
+## Desempenho
+
+A rota `#performance` herda moldura, ContentViewport, Geist e tokens da Visão Geral. O resumo usa quatro KPIs laranja (alcance, visualizações, interações e seguidores) e uma faixa neutra para engajados e links do perfil. Cada métrica e painel informativo tem ajuda contextual em `widget-help.mjs`. A fonte demonstrativa fica identificada no subtítulo da página. Os indicadores começam diretamente, sem resumo de escopo, navegação de seções ou cabeçalho intermediário de Visão geral.
+
+O período é definido somente pelo filtro global; não há seletor de pílulas de 7, 30 ou 90 dias. A evolução de visualizações agrupa a série diária e as distribuições por público e conteúdo. Um único dia medido aparece como ponto; histórico indisponível mostra um estado explícito. O gráfico permite setas, Home, End e Escape, com tabela alternativa. Interações e seguidores dividem a linha em desktop amplo. Público exige uma única conta; os atalhos de conta aplicam o escopo global e não agregam demografia entre perfis.
+
+Conteúdos mantém filtros por formato e ordenação descendente por métrica, inclusive no celular, onde as linhas viram registros com rótulos. Tabelas largas usam somente rolagem horizontal local. O ContentViewport continua sendo a única rolagem principal. Sobre os dados fica em um disclosure ao fim da tela. Zero, ausência de histórico e ausência de fonte permanecem estados diferentes. A prévia não confirma disponibilidade de integração Meta. Validação: `npm run test:performance`, `npm test` e `npm run test:layout`.
+
 ## Ajuda contextual dos widgets
 
 Consulte a [guia oficial de ajuda contextual](https://docs.google.com/document/d/1q9ySzYvNYcAoEiqcuOkW96SIwdAcrW4hQEAKEd45v70/edit?tab=t.89m0nghs2990). Registre cada widget informativo em `widget-help.mjs` pelo ID do título. Mantenha os detalhes de pontos, séries e células nos seus próprios controles.

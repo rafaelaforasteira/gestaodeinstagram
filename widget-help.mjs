@@ -1,4 +1,10 @@
 export const widgetHelp = {
+  "perf-kpi-users-round": "Contas alcançadas no período. O total usa a mesma base da Visão Geral; ao somar contas, pode incluir pessoas repetidas entre perfis.",
+  "perf-kpi-eye": "Soma das visualizações diárias das contas selecionadas. A variação compara o período anterior de igual duração. Dado ausente não é zero.",
+  "perf-kpi-heart": "Total de interações no período das contas selecionadas. A distribuição por ação e por formato aparece no painel Interações.",
+  "perf-kpi-user-round-plus": "Total de seguidores na data final selecionada. A informação abaixo do total mostra o saldo de ganhos e perdas no período.",
+  "perf-kpi-pulse": "Contas que interagiram com os conteúdos no período. Pessoas que interagem com vários perfis podem aparecer mais de uma vez no agregado.",
+  "perf-kpi-link-2": "Toques nos links do perfil no período. Valor sintético de demonstração; a disponibilidade desta métrica depende da validação do adaptador Meta.",
   "kpi-users-round": "Contas alcançadas no período pelos perfis selecionados. Ao somar perfis, uma mesma conta pode aparecer mais de uma vez.",
   "kpi-eye": "Soma das visualizações diárias dos perfis selecionados. Uma pessoa pode gerar mais de uma visualização. A soma exige dados para todos os dias.",
   "kpi-heart": "Contas que interagiram com os conteúdos no período. A soma entre perfis pode contar uma mesma conta mais de uma vez.",
@@ -9,7 +15,6 @@ export const widgetHelp = {
   "formats-title": "Compara a média da métrica selecionada por publicação e formato. Intervalos usam janelas de mesma duração. Ao selecionar um dia, a comparação usa o histórico até esse dia e até a véspera.",
   "bio-overview-title": "Conta cliques únicos por evento no período para as contas selecionadas. Os totais de banners mostram a situação atual, independentemente do intervalo de cliques.",
   "banner-manager-title": "Banners do cliente na ordem em que aparecem no Link Bio. Arraste ou use Mover para cima/baixo para mudar a ordem. O interruptor liga e desliga o banner. Os cliques seguem o período do filtro e o status é o atual.",
-  "perf-overview-title": "Totais do período nas contas selecionadas. Visualizações somam exibições; contas alcançadas e com engajamento contam pessoas únicas por conta. A variação compara com o período anterior de mesma duração.",
   "perf-views-title": "Visualizações (métrica views da API) por dia, divididas entre seguidores e não seguidores e por tipo de conteúdo: Reels, Posts (feed e carrossel) e Stories.",
   "perf-interactions-title": "Interações totais (total_interactions) divididas por ação e por tipo de conteúdo. A taxa compara interações com o alcance diário somado.",
   "perf-followers-title": "Seguidores atuais e o movimento do período: quem começou e quem deixou de seguir. Exige conta com 100 seguidores ou mais.",

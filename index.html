@@ -114,7 +114,7 @@
   <div class="content-shell"><div class="workspace scroll-region" role="region" aria-label="Área de trabalho" tabindex="0">
     <main id="content">
       <section class="intro" id="overview-top" aria-labelledby="greeting">
-        <div id="overview-heading"><h1 id="greeting">Boas-vindas ao Social Studio!</h1><p class="page-summary" id="summary">Entenda como seus conteúdos estão performando e o que merece sua atenção.</p><p class="demo-note" id="demo-note" hidden></p></div>
+        <div id="overview-heading"><h1 id="greeting">Boas-vindas ao Social Studio!</h1><p class="page-summary" id="summary">Entenda como seus conteúdos estão performando e o que merece sua atenção.</p></div>
         <div id="agenda-heading" hidden><h1 id="agenda-page-title">Agenda</h1><p class="page-summary" id="agenda-clock-date"></p></div>
         <button class="icon-button filter-trigger" id="filter-trigger" type="button" popovertarget="filter-panel" aria-label="Filtrar resultados" title="Filtrar resultados">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.223 7.989A2 2 0 0 1 10 14z"/></svg>
@@ -171,9 +171,7 @@
         </form>
       </div>
       <p id="scope-status" class="sr-only" role="status"></p>
-      <div class="dashboard-section-heading"><h2>Indicadores de resultado</h2><p class="muted">Alcance, visualizações, engajados e seguidores das contas selecionadas.</p></div>
       <section class="metric-grid" aria-label="Indicadores do Instagram" id="metrics"></section>
-      <div class="dashboard-section-heading"><h2>Rotina editorial</h2><p class="muted">Programação e frequência de publicação.</p></div>
       <div class="top-grid">
         <section class="card scheduled-widget" aria-labelledby="scheduled-title">
           <header><h2 id="scheduled-title"><svg aria-hidden="true"><use href="#icon-calendar"/></svg>Posts programados</h2><p class="muted">Acompanhe as publicações do período selecionado.</p></header>
@@ -187,7 +185,6 @@
         </section>
       </div>
       <div class="editorial-analysis" id="editorial">
-        <div class="dashboard-section-heading"><h2>Análise de conteúdo</h2><p class="muted">Destaques, comparação entre formatos e resultados do Link Bio.</p></div>
         <aside class="editorial-alert" id="editorial-alert" hidden><a href="#attention">Revisar falhas de publicação</a></aside>
         <div class="editorial-primary"><section class="card editorial-card" aria-labelledby="featured-title"><header><h2 id="featured-title"><svg aria-hidden="true"><use href="#icon-media"/></svg>Conteúdos em destaque</h2><p class="muted">Top 3 por alcance · Publicações do período · Métricas acumuladas.</p></header><div id="featured"></div></section><section class="card editorial-card" id="formats-card" aria-labelledby="formats-title"><header><h2 id="formats-title"><svg aria-hidden="true"><use href="#icon-chart"/></svg>Desempenho por formato</h2><p class="muted">Compare a performance dos formatos com o período anterior.</p></header><div id="formats"></div></section></div>
         <div class="bio-grid">
@@ -271,26 +268,23 @@
         </section>
         <section class="performance-page" id="performance" aria-labelledby="performance-title">
           <header class="activity-center-heading performance-heading">
-            <span class="activity-center-icon" aria-hidden="true"><svg><use href="#icon-chart"/></svg></span>
-            <div><h1 id="performance-title">Desempenho</h1><p class="page-summary">Métricas do Instagram fornecidas pela API da Meta para as contas e o período selecionados.</p></div>
+            <div><h1 id="performance-title">Desempenho</h1><p class="page-summary" id="performance-summary">Entenda o que cresce, o que engaja e quem acompanha sua marca.</p></div>
             <button class="icon-button filter-trigger" id="perf-filter-trigger" type="button" popovertarget="filter-panel" aria-label="Filtrar resultados" title="Filtrar resultados"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.74 1.67l7.223 7.989A2 2 0 0 1 10 14z"/></svg><span id="perf-filter-count" class="filter-count" aria-hidden="true"></span></button>
           </header>
-          <p class="perf-scope muted" id="perf-scope"></p>
-          <nav class="perf-nav" aria-label="Seções do Desempenho"><a href="#perf-overview" data-perf-jump>Visão geral</a><a href="#perf-views" data-perf-jump>Visualizações</a><a href="#perf-interactions" data-perf-jump>Interações</a><a href="#perf-followers" data-perf-jump>Seguidores</a><a href="#perf-audience" data-perf-jump>Público</a><a href="#perf-content" data-perf-jump>Conteúdos</a></nav>
           <div id="performance-body" class="performance-body">
-            <section class="card perf-section" id="perf-overview" aria-labelledby="perf-overview-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-overview-title">Visão geral</h2></div><p class="muted">Totais do período e variação em relação ao período anterior de mesma duração.</p></header><div class="perf-section-body"></div></section>
+            <section class="card perf-section" id="perf-overview" aria-label="Indicadores de desempenho"><div class="perf-section-body"></div></section>
             <section class="card perf-section" id="perf-views" aria-labelledby="perf-views-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-views-title">Visualizações</h2></div><p class="muted">Quantas vezes seus conteúdos foram exibidos, por dia, por público e por tipo.</p></header><div class="perf-section-body"></div></section>
             <section class="card perf-section" id="perf-interactions" aria-labelledby="perf-interactions-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-interactions-title">Interações</h2></div><p class="muted">Curtidas, comentários, salvamentos, compartilhamentos, reposts e respostas.</p></header><div class="perf-section-body"></div></section>
             <section class="card perf-section" id="perf-followers" aria-labelledby="perf-followers-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-followers-title">Seguidores</h2></div><p class="muted">Total atual, novos seguidores e deixaram de seguir no período.</p></header><div class="perf-section-body"></div></section>
             <section class="card perf-section" id="perf-audience" aria-labelledby="perf-audience-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-audience-title">Público</h2></div><p class="muted">Idade, gênero, localização e horários ativos.</p></header><div class="perf-section-body"></div></section>
             <section class="card perf-section" id="perf-content" aria-labelledby="perf-content-title"><header class="perf-section-head"><div data-help-header><h2 id="perf-content-title">Conteúdos</h2></div><p class="muted">Métricas de cada publicação do período.</p></header><div class="perf-section-body"></div></section>
-            <section class="card perf-section perf-about" aria-labelledby="perf-about-title"><h2 id="perf-about-title">Sobre os dados</h2><ul>
-              <li>Fonte: API de Insights do Instagram (Meta). Na demonstração, todos os números são fictícios.</li>
+            <details class="card perf-section perf-about"><summary id="perf-about-title">Sobre os dados e a disponibilidade das métricas</summary><ul>
+              <li>Esta prévia não possui uma fonte Meta conectada. Na demonstração, todos os números são fictícios e usam a data-base indicada no filtro.</li>
               <li>Impressões, reproduções e cliques de contato (e-mail, telefone, rota) foram descontinuados pela Meta e não aparecem aqui. Visualizações substitui impressões.</li>
               <li>Público e seguidores ganhos ou perdidos só são informados para contas com 100 seguidores ou mais.</li>
               <li>Stories ficam disponíveis na API por 24 horas. O histórico depende de a plataforma coletar os dados enquanto o Story está no ar.</li>
               <li>Métricas marcadas "A validar" precisam ser confirmadas na versão fixada da API antes da integração real.</li>
-            </ul></section>
+            </ul></details>
           </div>
         </section>
         <section id="banners" aria-labelledby="banners-title">
@@ -300,6 +294,7 @@
         </section>
       </div>
 
+      <footer class="demo-note" id="demo-note" hidden></footer>
     </main>
   </div>
 </div>

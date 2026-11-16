@@ -3,6 +3,7 @@
 // demoFollowerSnapshot), para que os totais coincidam. Sem fonte conectada, a tela mostra estados vazios.
 import { demo, samples, posts, demoPeriodInsights, demoFollowerSnapshot, offsetDay } from "./demo-data.mjs";
 import { completeTotal, percentChange } from "./analytics.mjs";
+import { renderWidgetHelp } from "./widget-help.mjs";
 
 const number = new Intl.NumberFormat("pt-BR");
 const decimal = new Intl.NumberFormat("pt-BR",{maximumFractionDigits:1});
@@ -109,11 +110,15 @@ function mediaRows(accountIds, start, end) {
 }
 
 // ---------- Componentes ----------
-function kpi(label, current, previous, {hint, validate, net} = {}) {
-  const card = el("article","perf-kpi");
+function kpi(label, current, previous, {hint, validate, net, icon = "eye", secondary = false} = {}) {
+  const card = el("article",secondary ? "perf-kpi perf-kpi-secondary" : "card metric perf-kpi");
   const head = el("div","perf-kpi-head");
-  head.append(el("span","perf-kpi-label",label));
-  if (validate) head.append(el("span","perf-flag","A validar"));
+  head.setAttribute("data-help-header","");
+  const title = el("h3","perf-kpi-label",label);
+  title.id = "perf-kpi-" + icon;
+  const symbol = el("span","perf-kpi-icon");
+  symbol.innerHTML = '<svg aria-hidden="true"><use href="#icon-'+icon+'"/></svg>';
+  head.append(symbol,title);
   card.append(head,el("strong","perf-kpi-value",value(current)));
   const change = net ? null : percentChange(current,previous);
   const foot = el("p","perf-kpi-foot");
@@ -125,11 +130,12 @@ function kpi(label, current, previous, {hint, validate, net} = {}) {
     foot.append(chip,document.createTextNode(" vs. período anterior"));
   }
   card.append(foot);
+  if (validate) foot.append(document.createTextNode(" · "),el("span","perf-flag","A validar"));
   return card;
 }
 
 function barList(items, {max, format = value, kind} = {}) {
-  const top = max ?? Math.max(1,...items.map(item => item.value ?? 0));
+  const top = Math.max(1,max ?? Math.max(1,...items.map(item => item.value ?? 0)));
   const list = el("ul","perf-bars");
   for (const item of items) {
     const row = el("li","perf-bar-row");
@@ -167,6 +173,9 @@ function niceMax(v) {
 // Série diária com crosshair e tooltip; os mesmos dados ficam numa tabela.
 function lineChart(rows, key, label, width, unit = "") {
   const wrap = el("div","perf-chart");
+  wrap.tabIndex = 0;
+  wrap.setAttribute("role","group");
+  wrap.setAttribute("aria-label",label + " por dia. Use as setas para explorar os valores ou abra a tabela abaixo.");
   const W = width, H = 210, L = 46, R = 14, T = 14, B = 28;
   const max = niceMax(Math.max(...rows.map(row => row[key])));
   const x = index => L + (rows.length === 1 ? (W - L - R) / 2 : index / (rows.length - 1) * (W - L - R));
@@ -180,13 +189,16 @@ function lineChart(rows, key, label, width, unit = "") {
     '<text class="perf-axis" x="'+x(index)+'" y="'+(H-8)+'" text-anchor="'+(index===0?"start":index===rows.length-1?"end":"middle")+'">'+shortDay.format(dateOf(rows[index].date))+'</text>').join("");
   wrap.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+label+' por dia"><g>'+grid+'</g>'+
     '<path class="perf-area" d="'+area+'"/><path class="perf-line" d="'+line+'"/>'+ticks+
-    '<line class="perf-cross" y1="'+T+'" y2="'+(H-B)+'" visibility="hidden"/><circle class="perf-dot" r="5" visibility="hidden"/>'+
+    (rows.length === 1 ? '<circle class="perf-dot" r="5" cx="'+points[0][0]+'" cy="'+points[0][1]+'"/>' : '')+
+    '<line class="perf-cross" y1="'+T+'" y2="'+(H-B)+'" visibility="hidden"/><circle class="perf-dot perf-active-dot" r="5" visibility="hidden"/>'+
     '<rect class="perf-hit" x="'+L+'" y="'+T+'" width="'+(W-L-R)+'" height="'+(H-T-B)+'"/></svg>';
   const tip = el("div","perf-tip");
   tip.hidden = true;
   wrap.append(tip);
-  const svg = wrap.querySelector("svg"), cross = svg.querySelector(".perf-cross"), dot = svg.querySelector(".perf-dot");
+  const svg = wrap.querySelector("svg"), cross = svg.querySelector(".perf-cross"), dot = svg.querySelector(".perf-active-dot");
+  let activeIndex = rows.length - 1;
   function show(index) {
+    activeIndex = index;
     const [px,py] = points[index];
     cross.setAttribute("x1",px); cross.setAttribute("x2",px); cross.setAttribute("visibility","visible");
     dot.setAttribute("cx",px); dot.setAttribute("cy",py); dot.setAttribute("visibility","visible");
@@ -197,6 +209,14 @@ function lineChart(rows, key, label, width, unit = "") {
     tip.style.top = Math.max(0,py / H * box.height - tip.offsetHeight - 12) + "px";
   }
   function hide() { tip.hidden = true; cross.setAttribute("visibility","hidden"); dot.setAttribute("visibility","hidden"); }
+  wrap.addEventListener("focus",() => show(activeIndex));
+  wrap.addEventListener("blur",hide);
+  wrap.addEventListener("keydown",event => {
+    if (event.target !== wrap) return;
+    if (event.key === "Escape") { hide(); return; }
+    const index = {ArrowLeft:Math.max(0,activeIndex-1),ArrowRight:Math.min(rows.length-1,activeIndex+1),Home:0,End:rows.length-1}[event.key];
+    if (index !== undefined) { event.preventDefault(); show(index); }
+  });
   svg.querySelector(".perf-hit").addEventListener("pointermove",event => {
     const box = svg.getBoundingClientRect();
     const vx = (event.clientX - box.left) / box.width * W;
@@ -283,12 +303,12 @@ export function renderPerformance(args) {
   lastArgs = args;
   const root = document.getElementById("performance-body");
   if (!root) return;
-  if (!root.dataset.observed) { resize.observe(root); root.dataset.observed = ""; }
+  if (!root.hasAttribute("data-observed")) { resize.observe(root); root.dataset.observed = "true"; }
   if (!root.offsetParent) return; // a tela está oculta; desenha ao abrir
   drawnWidth = root.clientWidth;
   const $ = id => document.getElementById(id);
   const sections = ["perf-overview","perf-views","perf-interactions","perf-followers","perf-audience","perf-content"].map($);
-  $("perf-scope").textContent = scopeLabel + " · " + (isDemo ? "Fonte: demonstração (dados fictícios)" : "Fonte: API da Meta não conectada");
+  $("performance-summary").textContent = "Entenda o que cresce, o que engaja e quem acompanha sua marca. " + (isDemo ? "Demonstração · dados fictícios." : "Sem fonte conectada.");
   if (!isDemo || !accounts.length) {
     const message = !accounts.length ? "Nenhuma conta do Instagram conectada para este filtro." : "Conecte uma conta do Instagram para ver as métricas da API da Meta.";
     sections.forEach(section => section.querySelector(".perf-section-body").replaceChildren(empty(message)));
@@ -299,10 +319,10 @@ export function renderPerformance(args) {
   const now = periodSummary(accounts,start,end), before = periodSummary(accounts,prevStart,prevEnd);
   const ids = new Set(accounts.map(account => account.id));
   const single = accounts.length === 1 ? accounts[0] : null;
-  const shortPeriod = days < 7;
+  const shortPeriod = !now.rows.length || !now.complete;
   const periodHint = () => {
     const box = el("div","perf-empty");
-    box.append(document.createTextNode("A evolução diária precisa de pelo menos 7 dias. "));
+    box.append(document.createTextNode("Histórico diário indisponível neste intervalo. "));
     const button = el("button","ac-button","Ver últimos 30 dias");
     button.type = "button";
     button.addEventListener("click",() => onPeriod("30"));
@@ -313,16 +333,17 @@ export function renderPerformance(args) {
   // 1. Visão geral
   const kpis = el("div","perf-kpis");
   kpis.append(
+    kpi("Alcance",now.reach,before.reach,{icon:"users-round"}),
     kpi("Visualizações",now.views,before.views),
-    kpi("Contas alcançadas",now.reach,before.reach),
-    kpi("Interações",now.interactions,before.interactions),
-    kpi("Contas com engajamento",now.engaged,before.engaged),
-    kpi("Seguidores",now.followers,null,{net:true,hint:now.follows === null ? "Sem histórico suficiente" :
+    kpi("Interações",now.interactions,before.interactions,{icon:"heart"}),
+    kpi("Seguidores",now.followers,null,{icon:"user-round-plus",net:true,hint:now.follows === null ? "Sem histórico suficiente" :
       (now.follows - now.unfollows >= 0 ? "+" : "−") + value(Math.abs(now.follows - now.unfollows)) + " no período"}),
-    kpi("Toques em links do perfil",now.linkTaps,before.linkTaps,{validate:true}),
   );
+  const secondary = el("div","perf-secondary-metrics");
+  secondary.append(kpi("Contas com engajamento",now.engaged,before.engaged,{secondary:true,icon:"pulse"}),
+    kpi("Toques em links do perfil",now.linkTaps,before.linkTaps,{secondary:true,icon:"link-2",validate:true}));
   const overviewBody = sections[0].querySelector(".perf-section-body");
-  overviewBody.replaceChildren(kpis);
+  overviewBody.replaceChildren(kpis,secondary);
   if (accounts.length > 1) overviewBody.append(el("p","perf-note","Soma das " + accounts.length + " contas. Alcance e engajamento podem contar a mesma pessoa em mais de uma conta."));
 
   // 2. Visualizações
@@ -346,21 +367,28 @@ export function renderPerformance(args) {
   const typeBlock = el("div","perf-block");
   typeBlock.append(el("h3","","Por tipo de conteúdo"),barList(TYPES.map(([key,label]) => ({label,value:viewTypes[key],share:viewTypes[key] / now.views * 100,type:key})),{max:now.views}));
   split.append(followerBlock,typeBlock);
-  viewsBody.replaceChildren(shortPeriod ? periodHint() : lineChart(now.rows,"views","Visualizações",chartWidth(viewsBody)),split);
+  const evolution = el("div","perf-evolution");
+  const evolutionHead = el("div","perf-evolution-head");
+  const evolutionMetric = el("div");
+  evolutionMetric.append(el("span","perf-eyebrow","Visualizações no período"),el("strong","perf-evolution-value",value(now.views)));
+  evolutionHead.append(evolutionMetric,el("span","perf-note",days === 1 ? "1 dia selecionado" : days + " dias selecionados"));
+  evolution.append(evolutionHead,shortPeriod ? periodHint() : lineChart(now.rows,"views","Visualizações",Math.max(280,Math.round(chartWidth(viewsBody)*.64))));
+  split.classList.add("perf-view-breakdown");
+  viewsBody.replaceChildren(...(now.views === null ? [periodHint()] : [evolution,split]));
 
   // 3. Interações
   const interactionsBody = sections[2].querySelector(".perf-section-body");
   const actions = [["Curtidas","likes"],["Comentários","comments"],["Salvamentos","saves"],["Compartilhamentos","shares"],["Reposts","reposts"],["Respostas a Stories","replies"]];
   const interSplit = el("div","perf-split");
   const actionBlock = el("div","perf-block");
-  actionBlock.append(el("h3","","Por tipo de interação"),barList(actions.map(([label,key]) => ({label,value:now.parts[key],share:now.parts[key] / now.interactions * 100})),{kind:"main"}));
+  actionBlock.append(el("h3","","Por tipo de interação"),barList(actions.map(([label,key]) => ({label,value:now.parts?.[key] ?? null,share:now.interactions > 0 ? now.parts[key] / now.interactions * 100 : undefined})),{kind:"main"}));
   const interTypes = {reels:Math.round(now.interactions * .55),posts:Math.round(now.interactions * .35)};
   interTypes.stories = now.interactions - interTypes.reels - interTypes.posts;
   const interTypeBlock = el("div","perf-block");
   interTypeBlock.append(el("h3","","Por tipo de conteúdo"),barList(TYPES.map(([key,label]) => ({label,value:interTypes[key],share:interTypes[key] / now.interactions * 100,type:key})),{max:now.interactions}),
     el("p","perf-note","Taxa de interação: " + percent(now.interactions / sum(now.rows,"reach") * 100) + " (interações ÷ alcance diário somado)."));
   interSplit.append(actionBlock,interTypeBlock);
-  interactionsBody.replaceChildren(interSplit);
+  interactionsBody.replaceChildren(now.interactions === null ? empty("Interações indisponíveis para este intervalo. Tente um período com cobertura completa.") : interSplit);
 
   // 4. Seguidores
   const followersBody = sections[3].querySelector(".perf-section-body");
@@ -373,7 +401,20 @@ export function renderPerformance(args) {
 
   // 5. Público
   const audienceBody = sections[4].querySelector(".perf-section-body");
-  if (!single) audienceBody.replaceChildren(empty("Selecione uma única conta no filtro para ver o público. Dados demográficos de contas diferentes não são somados."));
+  if (!single) {
+    const prompt = el("div","perf-audience-prompt");
+    const copy = el("div");
+    copy.append(el("h3","","Conheça o público de cada conta"),el("p","perf-note","Escolha uma conta para explorar idade, gênero, localização e horários ativos."));
+    const choices = el("div","perf-account-choices");
+    for (const account of accounts) {
+      const button = el("button","button",account.name);
+      button.type = "button";
+      button.addEventListener("click",() => { args.onAccount(account.id); document.querySelector('#perf-audience [aria-checked=true]')?.focus(); });
+      choices.append(button);
+    }
+    prompt.append(copy,choices);
+    audienceBody.replaceChildren(prompt,el("p","perf-note","Dados demográficos de contas diferentes são analisados separadamente."));
+  }
   else {
     const data = audienceFor(single.id,audienceMode);
     const modes = el("div","ac-tabs");
@@ -411,8 +452,8 @@ export function renderPerformance(args) {
     const hourBlock = el("div","perf-block perf-wide");
     const hourHead = el("h3","","Horários em que os seguidores estão online");
     hourHead.append(el("span","perf-flag","A validar"));
-    hourBlock.append(hourHead,hoursChart(chartWidth(audienceBody)));
-    const audienceGrid = el("div","perf-split");
+    hourBlock.append(hourHead,hoursChart(chartWidth(audienceBody) > 1060 ? Math.max(280,Math.round(chartWidth(audienceBody)/3)-48) : chartWidth(audienceBody)-32));
+    const audienceGrid = el("div","perf-split perf-audience-grid");
     audienceGrid.append(ageBlock,placeBlock,hourBlock);
     audienceBody.replaceChildren(modes,audienceGrid,el("p","perf-note","Dados demográficos exigem conta com 100 seguidores ou mais. Conta: " + single.name + "."));
   }
@@ -433,6 +474,19 @@ export function renderPerformance(args) {
     typeTabs.append(button);
   }
   const columns = [["reach","Alcance"],["views","Visualizações"],["likes","Curtidas"],["comments","Comentários"],["saves","Salvamentos"],["shares","Compart."],["interactions","Interações"],["profileVisits","Visitas ao perfil"]];
+  const toolbar = el("div","perf-content-toolbar");
+  const order = el("label","perf-order","Ordenar por");
+  const select = el("select");
+  select.setAttribute("aria-label","Ordenar publicações por");
+  for (const [key,label] of columns) {
+    const option = el("option","",label);
+    option.value = key;
+    option.selected = sortKey === key;
+    select.append(option);
+  }
+  select.addEventListener("change",() => { sortKey = select.value; renderPerformance(lastArgs); document.querySelector(".perf-order select")?.focus(); });
+  order.append(select);
+  toolbar.append(typeTabs,order);
   const scroller = el("div","perf-table-scroll scroll-region");
   scroller.tabIndex = 0;
   scroller.setAttribute("role","region");
@@ -460,15 +514,23 @@ export function renderPerformance(args) {
     const tag = el("span","perf-type",TYPES.find(([key]) => key === item.type)[1]);
     tag.dataset.type = item.type;
     typeCell.append(tag);
+    titleCell.dataset.label = "Publicação";
+    typeCell.dataset.label = "Tipo";
     tr.append(titleCell,typeCell);
-    for (const [key] of columns) tr.append(el("td","perf-num",item[key] === null || item[key] === undefined ? "—" : value(item[key])));
+    for (const [key,label] of columns) {
+      const cell = el("td","perf-num",item[key] === null || item[key] === undefined ? "—" : value(item[key]));
+      cell.dataset.label = label;
+      tr.append(cell);
+    }
     tr.append(el("td","perf-extra",item.type === "reels" ? "Tempo médio assistido: " + decimal.format(item.avgWatch) + " s · Novos seguidores: " + value(item.follows) :
       item.type === "stories" ? "Respostas: " + item.replies + " · Avançou: " + item.forward + " · Voltou: " + item.back + " · Saiu: " + item.exits :
       "Novos seguidores: " + value(item.follows)));
+    tr.lastElementChild.dataset.label = "Detalhe do formato";
     tbody.append(tr);
   }
   table.append(thead,tbody);
   scroller.append(table);
-  contentBody.replaceChildren(typeTabs,media.length ? scroller : empty("Nenhuma publicação deste tipo no período selecionado."),
-    el("p","perf-note","Métricas acumuladas por publicação até a última sincronização. Curtidas, comentários e salvamentos não se aplicam a Stories (—)."));
+  contentBody.replaceChildren(toolbar,media.length ? scroller : empty("Nenhuma publicação deste tipo no período selecionado."),
+    el("p","perf-note","Demonstração · Métricas acumuladas por publicação na data-base. Curtidas, comentários e salvamentos não se aplicam a Stories (—)."));
+  renderWidgetHelp(isDemo);
 }

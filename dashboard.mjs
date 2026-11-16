@@ -738,11 +738,12 @@ function refresh() {
   renderAttention(data.accounts);
   renderTable();
   const periodText = selected.start === selected.end ? formatDate(selected.start) : formatDate(selected.start) + " a " + formatDate(selected.end);
-  renderPerformance({accounts:data.accounts,start:selected.start,end:selected.end,isDemo,
+  renderPerformance({accounts:data.accounts,start:selected.start,end:selected.end,isDemo,period:appliedFilters.period,
     scopeLabel:[scopedClients.find(({id}) => id === appliedFilters.client)?.name ?? "Todos os clientes",
       data.accounts.find(({id}) => id === appliedFilters.account)?.name ?? (data.accounts.length + (data.accounts.length === 1 ? " conta" : " contas")),
       periodText].join(" · "),
-    onPeriod:period => { appliedFilters = {...appliedFilters,period}; refresh(); }});
+    onPeriod:period => { appliedFilters = {...appliedFilters,period}; refresh(); },
+    onAccount:account => { const client = scopedAccounts.find(item => item.id === account)?.client; if (client) { appliedFilters = {...appliedFilters,client,account}; refresh(); } }});
   agenda.setScope(data.accounts, [
     demo.clients.find(client => client.id === appliedFilters.client)?.name ?? "Todos os clientes",
     data.accounts.find(account => account.id === appliedFilters.account)?.name ?? "Todas as redes",
@@ -1455,13 +1456,6 @@ function updateNavigation() {
   });
 }
 window.addEventListener("hashchange",updateNavigation);
-// Atalhos internos do Desempenho rolam até a seção sem trocar a rota.
-for (const link of document.querySelectorAll("[data-perf-jump]")) {
-  link.addEventListener("click",event => {
-    event.preventDefault();
-    document.querySelector(link.getAttribute("href"))?.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",block:"start"});
-  });
-}
 updateNavigation();
 
 const sideMenu = $("side-menu");

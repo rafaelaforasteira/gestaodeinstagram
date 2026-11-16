@@ -11,3 +11,5 @@ O ContentViewport usa degradês de 24 px com a cor da superfície, separados do 
 Valide rolagem por teclado e toque, zoom, topo e fim da página, temas claro e escuro e sidebar expandida e recolhida. Confira HD, Full HD, ultrawide e celular, com conteúdo suficiente para ativar as barras internas.
 
 Na Gestão de Banners, cada cliente permite rolagem interna apenas na lista de banners. O cabeçalho permanece fora da lista. O limite visual corresponde a dois banners completos. O indicador visual permanece oculto na lista de banners. A rolagem nativa e os fades das extremidades continuam funcionando.
+
+Na Central de atividades, a lista de Precisa de atenção mantém rolagem interna nativa com a barra visualmente oculta. O cabeçalho e as abas Abertos/Resolvidos ficam fora da região rolável. Preserve o acesso por mouse, toque e teclado.
